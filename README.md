@@ -1,61 +1,90 @@
 # stock-wechat-writer
 
-一键生成 A 股行情分析微信公众号文章的 Claude Code Skill。
+一个面向中文财经自媒体场景的 `Claude Code` skill，用来生成 A股 / 港股 / 美股复盘、收评、行情分析公众号文章。
 
-## 功能
+这版重点强化了两件事：
 
-- 自动采集 A 股主要指数、板块涨跌、成交额
-- 获取 DeepEar Lite 实时金融信号
-- 抓取财联社/华尔街见闻/雪球实时新闻
-- 按 vibe-writer-pro 写作规范输出公众号文章
+1. `实时行情核对`
+2. `A股复盘写作`
 
-## 触发
+目标不是简单堆数据，而是先核实当天盘面事实，再写出一篇更像成熟公众号主编会发的复盘文章。
 
-在 Claude Code 中直接说：
+## 这版新增的核心能力
 
-```
+### 1. 事实卡片
+
+正式写文章前，先整理：
+
+- 指数
+- 成交额
+- 市场宽度
+- 最强主线
+- 次强主线
+- 领跌方向
+- 催化因素
+- 代表个股
+
+先把事实卡片写清楚，再进入正文写作。
+
+### 2. 关键数字双重确认
+
+指数、成交额、主线板块、驱动因素，至少两种来源交叉确认，避免混用口径。
+
+### 3. 唯一主判断
+
+每篇复盘只保留一个核心判断，例如：
+
+- 不是全面普涨，而是科技主线回流
+- 表面是反弹，本质是资金重新定价成长方向
+
+这样能显著降低“流水账复盘”的问题。
+
+## 适用任务
+
+在 Claude Code 里直接说：
+
+```text
 写今天的A股复盘
-生成今日行情分析文章
-写一篇A股收盘公众号文章
-今日A股晚报
-```
-
-## 前置要求
-
-- Python 环境：`pip install akshare yfinance requests loguru`
-- 已安装 alphaear-deepear-lite skill（可选，降级可用）
-- 已安装 alphaear-news skill（可选，降级可用）
-
-## 安装
-
-```bash
-# 将整个目录复制到 Claude Code 全局 skills 目录
-cp -r stock-wechat-writer ~/.claude/skills/
+生成今天的行情分析文章
+写一篇A股收评公众号文章
+补封面图并发到草稿箱
 ```
 
 ## 文件结构
 
-```
+```text
 stock-wechat-writer/
-  SKILL.md                       # 主 skill 定义
-  README.md                      # 本文档
+  SKILL.md
+  README.md
   references/
-    data_sources.md              # A股数据源详细说明
-    writing_template.md          # 公众号文章模板和示例
+    data_sources.md
+    writing_template.md
+    market-verification.md
+    recap-writing-playbook.md
 ```
 
-## 数据来源
+## 重点参考文件
 
-| 数据 | 来源 |
-|------|------|
-| 指数行情 | akshare (东方财富) |
-| 板块涨跌 | akshare |
-| 个股数据 | akshare / yfinance |
-| 金融信号 | DeepEar Lite |
-| 实时新闻 | 财联社 / 华尔街见闻 / 雪球 |
+- `SKILL.md`
+  主流程定义，包含核对、写作、排版、封面、草稿箱推送
 
-## 注意
+- `references/market-verification.md`
+  实时行情核对手册，约束哪些字段必须核对、如何双重确认
 
-- 仅限 Claude Code CLI 使用（需要 Python + 网络访问）
-- 所有分析仅供参考，不构成投资建议
-- 数据来自第三方，可能有延迟或错误
+- `references/recap-writing-playbook.md`
+  A股复盘写作手册，约束如何提炼主判断、怎样避免流水账
+
+## 数据源
+
+默认优先级：
+
+1. `akshare`
+2. 实时财经媒体 / 交易所公开口径
+3. DeepEar / 财联社 / 雪球等解释层信息
+
+## 注意事项
+
+- 这是高时效财经内容，写之前必须核对当日真实行情
+- 不要把“涨幅榜第一”直接当作“市场主线”
+- 不要默认写成个股推荐稿，除非用户明确要求
+- 所有内容仅供信息整理与复盘参考，不构成投资建议

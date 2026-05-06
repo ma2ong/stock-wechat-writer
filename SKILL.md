@@ -1,264 +1,244 @@
 ---
 name: stock-wechat-writer
 description: |
-  一键生成A股行情分析微信公众号文章。融合DeepEar实时金融信号、财联社/雪球实时新闻、
-  akshare/yfinance行情数据，按vibe-writer-pro风格输出适合微信公众号发布的行情分析稿件。
-  触发关键词：写A股分析、生成行情报告、写今日复盘、写明日展望、写公众号股票分析、
-  今日行情分析、收盘复盘、A股晚报、微信股票文章、生成行情文章。
-  Platform: Claude Code (CLI) only — requires Python, network access.
+  生成中文股票复盘 / 收评 / 盘后行情分析公众号文章。当用户提到 A股、港股、美股复盘，收评，盘后总结，行情分析，公众号股票文章，草稿箱推送，封面图时使用。
+  重点适用于“先核对实时行情，再写成中文财经自媒体文章”的任务。输出可以包括：市场事实核对、复盘正文、公众号 HTML、封面图、微信草稿箱推送。
 ---
 
 # Stock WeChat Writer
 
-一条命令，完成 A 股行情采集 → 分析 → 公众号写作的全流程。
+这个 skill 的目标不是“拼一堆市场数据”，而是先把当天盘面的事实核实清楚，再写出一篇适合中国公众号读者阅读的复盘文章。
+
+## 触发任务
+
+- 写今天的A股复盘
+- 生成今天的行情分析文章
+- 写盘后总结 / 收评
+- 做一篇公众号股票复盘
+- 补封面图并发到草稿箱
+
+## 核心原则
+
+1. 先核对，再下判断。
+2. 先给结论，再展开论证。
+3. 文章的中心不是“指数涨跌”，而是“今天市场到底在交易什么”。
+4. 不把复盘写成数据流水账，也不把它写成无依据喊单。
 
 ---
 
-## Step 1：确认环境
+## Step 1：确认任务边界
+
+先明确四件事：
+
+1. 市场：A股 / 港股 / 美股
+2. 时点：盘中、收盘后、次日早盘前
+3. 目标产物：正文 / HTML / 封面 / 草稿箱
+4. 日期：必须明确到自然日
+
+如果用户说“今天”“刚收盘”，正文里必须写绝对日期，避免时间歧义。
+
+---
+
+## Step 2：实时行情核对
+
+这一阶段必须优先完成，不能靠记忆写。
+
+详细规则见：
+
+- `references/market-verification.md`
+
+最低要求：
+
+1. 至少核对四大指数
+2. 至少核对两市成交额
+3. 至少核对上涨 / 下跌家数或市场宽度
+4. 至少核对领涨主线和领跌方向
+5. 至少核对一个“为什么今天这么走”的事件或资金解释
+6. 关键数字至少双重确认
+
+建议数据源优先级：
+
+1. `akshare`
+2. 实时财经媒体 / 交易所公开口径
+3. DeepEar / 财联社 / 雪球等做解释层补充
+
+### 核对输出格式
+
+在正式写文章前，先在脑中或草稿里整理出一个“事实卡片”：
+
+```markdown
+日期：
+市场阶段：收盘后 / 盘中 / 次日早盘前
+
+指数：
+- 上证：
+- 深成指：
+- 创业板：
+- 科创50：
+
+成交额：
+- 今日：
+- 昨日：
+- 变化：
+
+市场宽度：
+- 上涨家数：
+- 下跌家数：
+- 涨停 / 跌停：
+
+主线：
+- 最强主线：
+- 次强主线：
+- 领跌方向：
+
+催化：
+- 事件：
+- 资金：
+- 海外映射：
+
+代表个股：
+- 核心龙头1：
+- 核心龙头2：
+```
+
+如果这张事实卡片还写不清楚，就不要进入写作阶段。
+
+---
+
+## Step 3：提炼当天的唯一主判断
+
+一篇公众号复盘，最多只保留一个核心判断。
+
+推荐使用以下句式提炼：
+
+- 不是 `X`，而是 `Y`
+- 表面看是 `X`，本质上是 `Y`
+- 今天最重要的不是 `X`，而是 `Y`
+
+例如：
+
+- 不是全面普涨，而是科技主线重新回流
+- 不是指数强，而是资金在抢高弹性方向
+- 不是防御反弹，而是市场风险偏好回升
+
+如果同一天出现两个判断，说明还没有压缩到位。
+
+---
+
+## Step 4：A股复盘写作
+
+这一阶段重点不是“多写”，而是“写得像成熟财经主编”。
+
+详细规则见：
+
+- `references/recap-writing-playbook.md`
+- `references/writing_template.md`
+
+### 推荐结构
+
+1. 标题
+2. 开头总判断
+3. 为什么今天这样走
+4. 真正的主线是什么
+5. 哪些方向只是陪跑 / 假强
+6. 明天看什么
+7. 风险提示
+
+### 写作要求
+
+- 开头第一段就给结论
+- 每段尽量只表达一个意思
+- 重点解释“为什么”
+- 板块、个股、成交额都要服务于核心判断
+- 少写“市场表现活跃”“情绪明显修复”这类空话
+
+### 最重要的判断问题
+
+每篇复盘都要回答：
+
+1. 今天最强的到底是谁
+2. 这波上涨 / 下跌是情绪、事件、资金还是产业逻辑驱动
+3. 明天最可能出现的是加速、分歧还是轮动
+4. 读者真正该盯什么，不该盯什么
+
+---
+
+## Step 5：标题和摘要
+
+标题不是总结全文，而是放大核心矛盾。
+
+可用方向：
+
+- 放大量能
+- 主线切换
+- 科创 / 情绪极值
+- 明日分歧
+
+示例句式：
+
+- `3.25万亿爆了，A股主线彻底换了`
+- `今天A股最危险的信号，不是大涨，而是太一致了`
+- `不是普涨，真正的主线回来了`
+
+摘要要做两件事：
+
+1. 用一个数字抓人
+2. 用一句话说明“今天真正发生了什么”
+
+---
+
+## Step 6：公众号排版与封面
+
+如果用户要公众号成稿：
+
+1. 生成 Markdown 正文
+2. 生成可直接贴入编辑器的 HTML
+3. 生成中文封面 PNG
+
+封面要求：
+
+- 中文大字
+- 自媒体风格
+- 强对比配色
+- 股票 / K线 / 趋势元素
+- 不强依赖当天具体数字，避免反复改图
+
+---
+
+## Step 7：推送到草稿箱
+
+仅在用户明确要求时执行。
+
+默认脚本：
 
 ```bash
-!`python -c "import akshare, yfinance, requests; print('deps OK')" 2>/dev/null || echo "DEPS_MISSING"`
+python push_stock_review_draft.py
 ```
 
-如果输出 `DEPS_MISSING`，先安装依赖：
+执行前检查：
 
-```bash
-pip install -q akshare yfinance requests loguru
-```
+1. HTML 路径是否正确
+2. 封面路径是否正确
+3. 默认标题和摘要是否已替换为最终版
 
 ---
 
-## Step 2：采集行情数据（并行执行）
+## 不要这样写
 
-### 2a. A股主要指数收盘数据
-
-```python
-import akshare as ak
-import pandas as pd
-from datetime import datetime, timedelta
-
-today = datetime.now().strftime("%Y%m%d")
-
-# 上证、深证、创业板、科创板
-indices = {
-    "上证指数": "sh000001",
-    "深证成指": "sz399001",
-    "创业板指": "sz399006",
-    "科创50":   "sh000688",
-}
-
-results = {}
-for name, code in indices.items():
-    try:
-        df = ak.stock_zh_index_daily(symbol=code)
-        df = df.tail(2)
-        latest = df.iloc[-1]
-        prev   = df.iloc[-2]
-        chg    = (latest["close"] - prev["close"]) / prev["close"] * 100
-        results[name] = {
-            "close":  round(latest["close"], 2),
-            "change": round(chg, 2),
-            "volume": latest.get("volume", 0),
-        }
-    except Exception as e:
-        results[name] = {"error": str(e)}
-
-for name, data in results.items():
-    if "error" not in data:
-        direction = "▲" if data["change"] > 0 else "▼"
-        print(f"{name}: {data['close']}  {direction}{abs(data['change'])}%")
-```
-
-### 2b. 板块涨跌幅 Top5
-
-```python
-try:
-    df = ak.stock_board_industry_name_em()
-    df = df[["板块名称", "涨跌幅"]].copy()
-    df["涨跌幅"] = pd.to_numeric(df["涨跌幅"], errors="coerce")
-    df = df.dropna()
-    top5_up   = df.nlargest(5, "涨跌幅")
-    top5_down = df.nsmallest(5, "涨跌幅")
-    print("今日领涨板块：")
-    for _, row in top5_up.iterrows():
-        print(f"  {row['板块名称']}: +{row['涨跌幅']:.2f}%")
-    print("今日领跌板块：")
-    for _, row in top5_down.iterrows():
-        print(f"  {row['板块名称']}: {row['涨跌幅']:.2f}%")
-except Exception as e:
-    print(f"板块数据获取失败: {e}")
-```
-
-### 2c. 两市成交额
-
-```python
-try:
-    df = ak.stock_zh_a_spot_em()
-    total_vol = df["成交额"].sum() / 1e8
-    print(f"两市合计成交额：{total_vol:.0f} 亿元")
-except Exception as e:
-    print(f"成交额获取失败: {e}")
-```
+- 不要把复盘写成“指数 + 板块 + 个股”流水账
+- 不要只说涨跌，不解释驱动
+- 不要把二手新闻直接改写成文章
+- 不要把“题材涨幅榜第一”误判成“市场主线”
+- 不要默认给股票推荐，除非用户明确要“关注标的”
 
 ---
 
-## Step 3：获取实时金融信号
+## 这版相较旧版的优化重点
 
-运行 alphaear-deepear-lite 的采集脚本（如果已安装）：
-
-```bash
-!`python C:/Users/Administrator/.claude/skills/alphaear-deepear-lite/scripts/deepear_lite.py 2>/dev/null | head -80 || echo "DEEPEAR_UNAVAILABLE"`
-```
-
-如果 DEEPEAR_UNAVAILABLE，直接请求：
-
-```python
-import requests, json
-
-try:
-    resp = requests.get("https://deepear.vercel.app/latest.json", timeout=10)
-    data = resp.json()
-    signals = data.get("signals", data) if isinstance(data, dict) else data
-    if isinstance(signals, list):
-        for s in signals[:8]:
-            title   = s.get("title", "")
-            summary = s.get("summary", s.get("desc", ""))[:100]
-            conf    = s.get("confidence", s.get("score", ""))
-            print(f"[{conf}] {title}\n  {summary}\n")
-except Exception as e:
-    print(f"DeepEar信号获取失败: {e}")
-```
-
----
-
-## Step 4：获取实时新闻热点
-
-```python
-import requests, json
-
-def fetch_news(source_id, count=5):
-    """从 alphaear-news 数据源获取新闻"""
-    try:
-        import subprocess, sys
-        result = subprocess.run(
-            [sys.executable,
-             r"C:/Users/Administrator/.claude/skills/alphaear-news/scripts/news_tools.py",
-             source_id, str(count)],
-            capture_output=True, text=True, timeout=15
-        )
-        if result.returncode == 0 and result.stdout:
-            return result.stdout
-    except Exception:
-        pass
-    return None
-
-# 优先采集财经源
-for src in ["cls", "wallstreetcn", "xueqiu"]:
-    output = fetch_news(src, 5)
-    if output:
-        print(f"\n=== {src} ===\n{output[:600]}")
-        break
-```
-
----
-
-## Step 5：分析与主题提炼
-
-基于采集到的数据，按以下框架分析：
-
-### 分析框架
-
-| 维度 | 关注点 |
-|------|--------|
-| **市场情绪** | 指数涨跌方向 + 成交量环比（量价配合） |
-| **板块轮动** | 领涨/领跌板块 + 是否连续 |
-| **资金动向** | 北向资金净流向（如可获取） |
-| **信号强度** | DeepEar 高置信度信号（confidence > 0.7） |
-| **事件驱动** | 财联社/华尔街见闻重点新闻 |
-
-### 股票推荐逻辑（必须满足）
-
-1. 与当日领涨板块相关
-2. 有具体信号/事件支撑（非凭空推测）
-3. 给出 T+1/T+3 方向判断，说明理由
-4. 标注风险点
-
----
-
-## Step 6：按微信公众号格式写稿
-
-### 文章结构模板
-
-```
-标题：[日期]A股收盘复盘｜[核心主题一句话]
-
-【今日行情速览】
-[用数字说话，2-3句，指数涨跌+成交额]
-
-【核心信号】
-[1-3个DeepEar高置信度信号，用口语化表达，每个50字内]
-
-【板块分析】
-[领涨板块：为什么涨，逻辑是什么]
-[领跌板块：为什么跌，是否有机会]
-
-【值得关注的标的】
-[股票1]（代码）
-- 理由：[数据支撑 + 信号支撑]
-- 方向：T+1/T+3 [涨/震荡/注意风险]
-
-[股票2]...
-
-【明日展望】
-[1-2句，不过度预测，基于当日量价信号判断]
-
-【风险提示】
-股市有风险，以上分析仅供参考，不构成投资建议。
-```
-
-### 写作规范（来自 vibe-writer-pro）
-
-**必须做：**
-- 开头直接切入数字，不用"在当今市场环境下..."之类套话
-- 用口语化词汇：「很明显」不用「显著」，「但是」不用「然而」
-- 短句为主（15-25字），长句拆分
-- 数据要具体：「成交额 8234 亿」而不是「成交额较大」
-- 板块分析要说「为什么」不只说「涨了」
-
-**不能做：**
-- 震惊体标题（"炸裂！""彻底颠覆！"）
-- 模糊表达（"最近""很多"）
-- 无依据的信心（"明天必涨"）
-- 未说明来源的数据
-
----
-
-## Step 7：输出最终稿件
-
-完成写稿后，输出：
-
-1. **正文** — 可直接复制到微信公众号编辑器的 Markdown
-2. **数据来源** — 列出使用的数据源（akshare / DeepEar / 财联社等）
-3. **采集时间** — 注明数据时间戳
-
----
-
-## 快速调用示例
-
-用户说"写今天的A股复盘"时，直接按此 workflow 执行：
-
-1. Step 2 并行获取指数、板块、成交额
-2. Step 3 获取 DeepEar 信号
-3. Step 4 获取财经新闻
-4. Step 5 分析提炼 3-5 个核心主题
-5. Step 6 按模板写稿
-6. Step 7 输出
-
-**不需要反复确认**，数据采集失败时优雅降级（跳过该数据源，继续写）。
-
----
-
-## Reference Files
-
-- `references/data_sources.md` — A股数据源详细说明和代码示例
-- `references/writing_template.md` — 公众号文章模板和示例
+1. 把“实时行情核对”从普通采集，提升为强制前置步骤
+2. 加入“事实卡片”，先核实再写
+3. 要求关键数字双重确认，避免混用口径
+4. 把文章核心从“列数据”改成“提炼唯一主判断”
+5. 把“板块涨幅榜”与“真实主线”区分开
+6. 强化“明天看什么”的交易结构表达
+7. 降低“像研报”和“像喊单”的风险
