@@ -1,264 +1,377 @@
 ---
 name: stock-wechat-writer
-description: |
-  一键生成A股行情分析微信公众号文章。融合DeepEar实时金融信号、财联社/雪球实时新闻、
-  akshare/yfinance行情数据，按vibe-writer-pro风格输出适合微信公众号发布的行情分析稿件。
-  触发关键词：写A股分析、生成行情报告、写今日复盘、写明日展望、写公众号股票分析、
-  今日行情分析、收盘复盘、A股晚报、微信股票文章、生成行情文章。
-  Platform: Claude Code (CLI) only — requires Python, network access.
+description: 一键生成A股行情分析微信公众号文章。融合DeepEar实时金融信号、财联社/雪球实时新闻、akshare/yfinance行情数据，按vibe-writer-pro风格输出适合微信公众号发布的行情分析稿件。触发关键词：写A股分析、生成行情报告、写今日复盘、写明日展望、写公众号股票分析、今日行情分析、收盘复盘、A股晚报、微信股票文章、生成行情文章。Platform: Claude Code (CLI) only — requires Python, network access.
 ---
 
 # Stock WeChat Writer
 
-一条命令，完成 A 股行情采集 → 分析 → 公众号写作的全流程。
+这个 skill 的目标：把当天盘面事实核实清楚，写出一篇有自己判断、中国公众号读者愿意看完并转发的复盘文章。
+
+不是拼数据流水账，是写一个有立场的人对今天市场的理解。
 
 ---
 
-## Step 1：确认环境
+## 触发任务
 
-```bash
-!`python -c "import akshare, yfinance, requests; print('deps OK')" 2>/dev/null || echo "DEPS_MISSING"`
-```
-
-如果输出 `DEPS_MISSING`，先安装依赖：
-
-```bash
-pip install -q akshare yfinance requests loguru
-```
+- 写今天的A股复盘 / 收盘复盘 / A股晚报
+- 生成今天的行情分析文章 / 公众号股票文章
+- 写盘后总结 / 收评 / 明日展望
+- 做一篇公众号股票复盘（含封面图）
+- 补封面并发到草稿箱
 
 ---
 
-## Step 2：采集行情数据（并行执行）
+## Step 1：确认任务边界
 
-### 2a. A股主要指数收盘数据
+先明确四件事，不明确不进入下一步：
+
+| 字段 | 说明 |
+|------|------|
+| 市场 | A股 / 港股 / 美股 |
+| 时点 | 盘中 / 收盘后 / 次日早盘前 |
+| 产物 | 正文 / HTML / 封面 / 草稿箱推送 |
+| 日期 | 必须明确到自然日，不写"今天" |
+
+---
+
+## Step 2：实时行情核对
+
+**原则：先核对，再写文章。事实卡片写不清楚，就不进入写作阶段。**
+
+### 2a. 行情硬数据（akshare）
 
 ```python
 import akshare as ak
-import pandas as pd
-from datetime import datetime, timedelta
-
-today = datetime.now().strftime("%Y%m%d")
-
-# 上证、深证、创业板、科创板
-indices = {
-    "上证指数": "sh000001",
-    "深证成指": "sz399001",
-    "创业板指": "sz399006",
-    "科创50":   "sh000688",
-}
-
-results = {}
-for name, code in indices.items():
-    try:
-        df = ak.stock_zh_index_daily(symbol=code)
-        df = df.tail(2)
-        latest = df.iloc[-1]
-        prev   = df.iloc[-2]
-        chg    = (latest["close"] - prev["close"]) / prev["close"] * 100
-        results[name] = {
-            "close":  round(latest["close"], 2),
-            "change": round(chg, 2),
-            "volume": latest.get("volume", 0),
-        }
-    except Exception as e:
-        results[name] = {"error": str(e)}
-
-for name, data in results.items():
-    if "error" not in data:
-        direction = "▲" if data["change"] > 0 else "▼"
-        print(f"{name}: {data['close']}  {direction}{abs(data['change'])}%")
+# 指数行情
+df_index = ak.stock_zh_index_daily(symbol="sh000001")  # 上证
+# 两市成交额
+df_vol = ak.stock_market_activity_legu()
+# 行业板块排行
+df_sector = ak.stock_board_industry_summary_ths()
 ```
 
-### 2b. 板块涨跌幅 Top5
+关键字段：指数收盘点位、涨跌幅、两市成交额、上涨/下跌家数、板块涨跌排行。
 
-```python
-try:
-    df = ak.stock_board_industry_name_em()
-    df = df[["板块名称", "涨跌幅"]].copy()
-    df["涨跌幅"] = pd.to_numeric(df["涨跌幅"], errors="coerce")
-    df = df.dropna()
-    top5_up   = df.nlargest(5, "涨跌幅")
-    top5_down = df.nsmallest(5, "涨跌幅")
-    print("今日领涨板块：")
-    for _, row in top5_up.iterrows():
-        print(f"  {row['板块名称']}: +{row['涨跌幅']:.2f}%")
-    print("今日领跌板块：")
-    for _, row in top5_down.iterrows():
-        print(f"  {row['板块名称']}: {row['涨跌幅']:.2f}%")
-except Exception as e:
-    print(f"板块数据获取失败: {e}")
-```
-
-### 2c. 两市成交额
-
-```python
-try:
-    df = ak.stock_zh_a_spot_em()
-    total_vol = df["成交额"].sum() / 1e8
-    print(f"两市合计成交额：{total_vol:.0f} 亿元")
-except Exception as e:
-    print(f"成交额获取失败: {e}")
-```
-
----
-
-## Step 3：获取实时金融信号
-
-运行 alphaear-deepear-lite 的采集脚本（如果已安装）：
+### 2b. 实时财经新闻（opencli）
 
 ```bash
-!`python C:/Users/Administrator/.claude/skills/alphaear-deepear-lite/scripts/deepear_lite.py 2>/dev/null | head -80 || echo "DEEPEAR_UNAVAILABLE"`
+# 雪球热议
+opencli xueqiu search "A股收盘" --limit 10
+
+# 财联社要闻
+opencli cailian --category hot --limit 15
+
+# 雪球指数讨论
+opencli xueqiu stock 000001 --comments
 ```
 
-如果 DEEPEAR_UNAVAILABLE，直接请求：
+### 2c. 市场信号（alphaear skill）
+
+触发 `alphaear-signal-tracker` skill 获取 DeepEar 高置信度信号，用于补充主线解释，不替代硬数据。
+
+### 2d. 港股/美股映射（yfinance）
 
 ```python
-import requests, json
+import yfinance as yf
+# 恒生指数、纳斯达克、海外映射个股
+yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
+```
 
-try:
-    resp = requests.get("https://deepear.vercel.app/latest.json", timeout=10)
-    data = resp.json()
-    signals = data.get("signals", data) if isinstance(data, dict) else data
-    if isinstance(signals, list):
-        for s in signals[:8]:
-            title   = s.get("title", "")
-            summary = s.get("summary", s.get("desc", ""))[:100]
-            conf    = s.get("confidence", s.get("score", ""))
-            print(f"[{conf}] {title}\n  {summary}\n")
-except Exception as e:
-    print(f"DeepEar信号获取失败: {e}")
+### 2e. 整理事实卡片
+
+```markdown
+日期：YYYY-MM-DD
+数据截点：收盘后 / 盘中 HH:MM
+
+指数：
+- 上证：     点（+/-  %）
+- 深成指：   点（+/-  %）
+- 创业板：   点（+/-  %）
+- 科创50：   点（+/-  %）
+
+成交额：
+- 今日：     亿
+- 昨日：     亿
+- 环比：+/-  %
+
+市场宽度：
+- 上涨家数：    涨停：
+- 下跌家数：    跌停：
+
+主线：
+- 真正主线：（有成交量支撑、有龙头带动）
+- 次强主线：
+- 弱势方向：
+
+驱动：
+- 新闻催化：（来源：）
+- 资金解释：（来源：）
+- 海外映射：
+
+情绪与价格：
+- 今日最重要消息：（来源：）
+- 消息情绪方向：正面 / 负面 / 中性
+- 价格实际反应：上涨 / 下跌 / 震荡
+- 是否背离：是 / 否（背离时重点分析原因）
+
+信号状态（对比近3-5日）：
+- 主线信号：强化 / 持平 / 弱化 / 反转
+
+核心结论：
+- 今天最值得写的一件事：（用自己的话写出来）
+```
+
+> 关键数字必须双重来源确认。板块涨幅榜第一 ≠ 真正主线，要看成交量和龙头。
+
+详细规则见 `references/market-verification.md` 和 `references/data_sources.md`。
+
+---
+
+## Step 3：提炼唯一主判断
+
+一篇复盘只保留一个核心判断。多了就变成流水账。
+
+**判断从事实卡片里来，不是套句式套出来的。**
+
+看完事实卡片，先做两个判断，再写结论：
+
+**① 信号连续性（借鉴 alphaear-signal-tracker）**
+
+今天相对于近3-5个交易日，主线信号是哪种状态：
+
+| 状态 | 含义 | 对文章的影响 |
+|------|------|------|
+| 强化（Strengthened） | 同方向、更强，量能放大 | 重点写主线深化，明日可能继续 |
+| 持平（Unchanged） | 方向不变，力度差不多 | 重点写支撑因素是否还在 |
+| 弱化（Weakened） | 同方向但力度明显下降 | 重点写警示信号，是否到顶 |
+| 反转（Falsified） | 方向明显改变 | 重点写切换原因，新旧主线对比 |
+
+把状态写进核心结论里，复盘才有纵向视角，不只是今天单日快照。
+
+**② 写出核心结论句**
+
+用自己的话写，一句话，不超过20字。检验标准：发给今天持仓的朋友，他会觉得"对，这就是今天最关键的"。句式随行情走，不固定。
+
+---
+
+## Step 4：写作
+
+详细规则见 `references/recap-writing-playbook.md` 和 `references/writing_template.md`。
+
+**推荐结构：**
+
+1. 标题（用Step 5的公式选）
+2. 开头：直接给核心判断（不铺垫背景）
+3. 为什么今天会这样走（驱动逻辑）
+4. 真正的主线是什么（有支撑，不只说涨幅第一）
+5. 哪些方向只是陪跑或假强
+6. 明天看什么（2-4个具体观察点，可验证）
+7. 风险提示
+
+**写作要求：**
+- 开头第一段就给结论，不写"今天市场..."这类导语
+- 每段只表达一个意思
+- 板块、个股、成交额都服务于核心判断，不单独列数据
+- 有自己的立场，不只描述发生了什么
+
+---
+
+## Step 5：标题选择
+
+标题不是总结全文，是放大核心矛盾、制造信息落差。
+
+**标题从核心判断里来，不是套公式套出来的。**
+
+把 Step 3 的核心判断句拿来，改成让人想点开的表达方式。可以参考这几个方向：
+
+| 方向 | 适用场景 | 示例 |
+|------|------|------|
+| 关键数字开路 | 成交额、涨停家数有明显异动 | `3.25万亿，今年第三次` |
+| 直接点出主线切换 | 今天主线和昨天明显不同 | `消费退潮，科技接棒` |
+| 放大今天最反常的事 | 走势和预期、消息相反 | `利好出尽，A股反而涨了` |
+| 指出多数人会误判的地方 | 表面和实质不一致 | `普涨背后，资金在悄悄撤` |
+
+不要硬凑标题，如果今天行情本来就平淡，就老实写平淡，不需要制造不存在的戏剧性。
+
+**HKR 三维评估**（从备选标题中选最高分的）：
+- **H（Happy/快感）**：读者看到标题会觉得"这个我想知道"
+- **K（Knowledge/信息）**：标题透露了一个具体事实或判断
+- **R（Resonance/共鸣）**：持仓的读者会有"这正是我今天的感受"
+
+---
+
+## Step 6：四层自检（发稿前必做）
+
+**四遍独立过，不能合并成一次扫描。** 每一遍只盯一个维度，过完才进下一遍。过不了不发。
+
+详细禁用词和替换规则见 `references/ai-antipatterns.md`。
+
+**第一遍：L1 硬性规则（逐句，机械扫描）**
+- [ ] 无禁用词：行情表现活跃、情绪明显修复、多个板块实现上涨、值得关注、综上所述、助力、旨在、不难发现
+- [ ] 无"！！"连用，无"……"，无冒号独占一行
+- [ ] 无"首先…其次…最后…"结构
+- [ ] 所有数字具体（"大幅上涨" → "涨4.3%"，"成交量放大" → "成交额3.1万亿"）
+
+**第二遍：L2 节奏与口语（通读全文，感受节奏）**
+- [ ] 开头不是"在当前市场环境下..."或"近期A股..."
+- [ ] 长句（>25字）已拆成2-3句
+- [ ] 至少有2处口语化转折（"其实""简单说""关键在于"）
+- [ ] 每段不超过4行；有长短句交替，不是清一色短句
+
+**第三遍：L3 内容质量（只看事实和逻辑）**
+- [ ] 主线判断有成交量或龙头名字支撑，不只靠涨幅榜排名
+- [ ] 文中至少出现2个具名案例（公司名/股票代码+具体数字，不能只说"科技板块"）
+- [ ] 每个驱动因素有具体来源（新闻标题/资金数据/政策文件）
+- [ ] 明日观察点可以在第二天验证（不写"值得期待"）
+- [ ] 全文有且只有一个核心判断
+
+**第四遍：L4 活人感（最容易被跳过，最重要）**
+- [ ] 有立场，不只描述——会说"我觉得今天市场在赌X"或"这让我警惕的是Y"
+- [ ] 有读者视角——"如果你持有科技线..."或"对于做短线的来说..."
+- [ ] 有反直觉角度——不是在重复今天财联社/雪球都说过的
+- [ ] 读起来像一个今天真的跟盘的人在说话，不像数据播报员
+
+---
+
+## Step 7：传播力评估（必做，L4通过后）
+
+对照7个维度自评。全部达标才算发稿就绪，有缺失的回去改对应部分。
+
+| 维度 | 标准 | 未达标的典型症状 |
+|------|------|------|
+| **D1 标题钩子** | 有信息差/情绪/数字，让持仓读者必须点开 | 标题像新闻播报，无悬念 |
+| **D2 开头留人** | 前3行给出反直觉数字或核心判断，无废话 | 第一段是背景介绍 |
+| **D3 内容密度** | 每段有具体数字或事件，段落2-4行 | 有一段删掉也不影响阅读 |
+| **D4 情绪触发** | 触发了焦虑/共鸣/好奇/确认感中至少一种 | 读完没有任何情绪反应 |
+| **D5 互动引导** | 结尾有一个开放性问题引导留言 | 文章以风险提示结尾，无CTA |
+| **D6 关注转化** | 有系列感或人设差异，让读者有理由关注账号 | 和其他财经号没有区别 |
+| **D7 裂变单元** | 有一句话/一个判断可以单独截图转发 | 全文没有能独立存在的金句 |
+
+**D5 互动引导写法**（结尾必须加，在风险提示之前）：
+
+```
+你觉得[今天最强的板块/明天的分歧]，还能走多久？
+留言聊聊，你今天拿的是哪个方向。
+```
+
+不要用是非题（"你觉得明天会涨吗？"），用开放性问题（"你今天重仓的是什么方向？"）——开放性问题的评论率高3-5倍。
+
+---
+
+## Step 8：排版、配图与封面
+
+详细封面设计规范见 `references/cover-design.md`。
+
+### 8a. 正文排版（md2wechat-skill）
+
+正文 Markdown 定稿后，调用 `md2wechat-skill` 转换为公众号 HTML：
+- 触发时机：L1-L4 自检全部通过之后
+- 输出产物：可直接粘贴进公众号编辑器的 HTML 片段
+
+### 8b. 配图决策
+
+根据内容类型选择配图方式：
+
+| 内容需求 | 方式 | 说明 |
+|----------|------|------|
+| 封面图 | HTML 模板 → Playwright 截图 | 可控、文字精准，金融数字不会出错 |
+| 行情走势图、K线 | image-generator skill | 概念性/氛围类图片，不要求精确数字 |
+| 数据对比表格、板块热力图 | HTML 图表 → Playwright 截图 | 数字精确，样式可复用 |
+| 真实界面引用 | 截图 | 引用 akshare 输出或交易软件界面时 |
+
+**原则：封面一定要，正文配图按需加，不强制每篇都有正文配图。**
+
+### 8c. 封面生成流程
+
+**Step 1：生成 HTML 封面文件**
+
+文件命名：`output/cover-stock-YYYYMMDD.html`
+
+封面内容要求：
+- 核心判断句（不超过16字，当天最强结论）
+- 日期标注
+- 可选：关键数字（指数/成交额）
+
+CSS 规范（借鉴 vibe-writer-pro）：
+```css
+/* 尺寸固定 900×500px，禁止溢出 */
+body { width: 900px; height: 500px; overflow: hidden; margin: 0; }
+/* 深色渐变底，金融色系 */
+background: linear-gradient(135deg, #0a0e1a 0%, #1a2744 60%, #0d1f3c 100%);
+/* 主文字：白色大字 + 金色/红色强调 */
+/* 禁止使用浅色背景 + 黑字的"PPT风" */
+```
+
+**Step 2：Playwright 截图 → PNG**
+
+```bash
+# 确认 CDP Proxy 已启动
+bash ~/.claude/skills/web-access/scripts/check-deps.sh
+
+# 截图前必须先 resize，再导航，再截图
+# resize: 900×500
+# navigate: file:///path/to/cover-stock-YYYYMMDD.html
+# screenshot → output/cover-stock-YYYYMMDD.png
+```
+
+每张截图必须按顺序：resize → navigate → screenshot，不能省略 resize 步骤。
+
+**Step 3：验证封面**
+
+截图完成后用 Read 工具查看图片，确认：
+- [ ] 文字清晰可读，无截断
+- [ ] 背景不是白色或浅色
+- [ ] 日期正确
+
+### 8d. 文件命名规范
+
+```
+output/
+├── stock_review_YYYYMMDD.md          # 正文 Markdown
+├── stock_review_YYYYMMDD.html        # 公众号 HTML（md2wechat 输出）
+├── cover-stock-YYYYMMDD.html         # 封面 HTML 模板
+└── cover-stock-YYYYMMDD.png          # 封面截图（推送用）
 ```
 
 ---
 
-## Step 4：获取实时新闻热点
+## Step 9：推送草稿箱
 
-```python
-import requests, json
+仅用户明确要求时执行。推送前必须先跑检查脚本。
 
-def fetch_news(source_id, count=5):
-    """从 alphaear-news 数据源获取新闻"""
-    try:
-        import subprocess, sys
-        result = subprocess.run(
-            [sys.executable,
-             r"C:/Users/Administrator/.claude/skills/alphaear-news/scripts/news_tools.py",
-             source_id, str(count)],
-            capture_output=True, text=True, timeout=15
-        )
-        if result.returncode == 0 and result.stdout:
-            return result.stdout
-    except Exception:
-        pass
-    return None
+### 9a. 发稿前自动检查
 
-# 优先采集财经源
-for src in ["cls", "wallstreetcn", "xueqiu"]:
-    output = fetch_news(src, 5)
-    if output:
-        print(f"\n=== {src} ===\n{output[:600]}")
-        break
+```bash
+python skills/stock-wechat-writer/scripts/pre_publish_check.py \
+  --article output/stock_review_YYYYMMDD.md
 ```
 
----
+检查通过（硬性项 0 failures）才能进入推送。有 failures 先修文章，再重跑检查。
 
-## Step 5：分析与主题提炼
+### 9b. 推送到草稿箱
 
-基于采集到的数据，按以下框架分析：
-
-### 分析框架
-
-| 维度 | 关注点 |
-|------|--------|
-| **市场情绪** | 指数涨跌方向 + 成交量环比（量价配合） |
-| **板块轮动** | 领涨/领跌板块 + 是否连续 |
-| **资金动向** | 北向资金净流向（如可获取） |
-| **信号强度** | DeepEar 高置信度信号（confidence > 0.7） |
-| **事件驱动** | 财联社/华尔街见闻重点新闻 |
-
-### 股票推荐逻辑（必须满足）
-
-1. 与当日领涨板块相关
-2. 有具体信号/事件支撑（非凭空推测）
-3. 给出 T+1/T+3 方向判断，说明理由
-4. 标注风险点
-
----
-
-## Step 6：按微信公众号格式写稿
-
-### 文章结构模板
-
-```
-标题：[日期]A股收盘复盘｜[核心主题一句话]
-
-【今日行情速览】
-[用数字说话，2-3句，指数涨跌+成交额]
-
-【核心信号】
-[1-3个DeepEar高置信度信号，用口语化表达，每个50字内]
-
-【板块分析】
-[领涨板块：为什么涨，逻辑是什么]
-[领跌板块：为什么跌，是否有机会]
-
-【值得关注的标的】
-[股票1]（代码）
-- 理由：[数据支撑 + 信号支撑]
-- 方向：T+1/T+3 [涨/震荡/注意风险]
-
-[股票2]...
-
-【明日展望】
-[1-2句，不过度预测，基于当日量价信号判断]
-
-【风险提示】
-股市有风险，以上分析仅供参考，不构成投资建议。
+```bash
+python push_stock_review_draft.py \
+  --html output/stock_review_YYYYMMDD.html \
+  --cover output/cover-stock-YYYYMMDD.png \
+  --title "最终标题" \
+  --digest "摘要（100字内，一句话核心判断）"
 ```
 
-### 写作规范（来自 vibe-writer-pro）
-
-**必须做：**
-- 开头直接切入数字，不用"在当今市场环境下..."之类套话
-- 用口语化词汇：「很明显」不用「显著」，「但是」不用「然而」
-- 短句为主（15-25字），长句拆分
-- 数据要具体：「成交额 8234 亿」而不是「成交额较大」
-- 板块分析要说「为什么」不只说「涨了」
-
-**不能做：**
-- 震惊体标题（"炸裂！""彻底颠覆！"）
-- 模糊表达（"最近""很多"）
-- 无依据的信心（"明天必涨"）
-- 未说明来源的数据
+推送前核查（三项都必须确认）：
+1. `--html` 和 `--cover` 路径是当天日期文件，不是旧文件
+2. `--title` 是最终定稿标题，不是占位符
+3. `--digest` 是实质性摘要，不是"今日A股复盘"这类无信息量的句子
 
 ---
 
-## Step 7：输出最终稿件
+## 不要这样写
 
-完成写稿后，输出：
+详细替换规则见 `references/ai-antipatterns.md`，简版：
 
-1. **正文** — 可直接复制到微信公众号编辑器的 Markdown
-2. **数据来源** — 列出使用的数据源（akshare / DeepEar / 财联社等）
-3. **采集时间** — 注明数据时间戳
-
----
-
-## 快速调用示例
-
-用户说"写今天的A股复盘"时，直接按此 workflow 执行：
-
-1. Step 2 并行获取指数、板块、成交额
-2. Step 3 获取 DeepEar 信号
-3. Step 4 获取财经新闻
-4. Step 5 分析提炼 3-5 个核心主题
-5. Step 6 按模板写稿
-6. Step 7 输出
-
-**不需要反复确认**，数据采集失败时优雅降级（跳过该数据源，继续写）。
-
----
-
-## Reference Files
-
-- `references/data_sources.md` — A股数据源详细说明和代码示例
-- `references/writing_template.md` — 公众号文章模板和示例
+- 不写"行情表现活跃"，写具体数字
+- 不写"情绪明显修复"，写涨停家数或量能变化
+- 不把复盘写成"指数+板块+个股"三段式流水账
+- 不把涨幅榜第一当成主线
+- 不写"后续值得关注"，写明天具体看什么
+- 不推荐股票，除非用户明确要"关注标的"
