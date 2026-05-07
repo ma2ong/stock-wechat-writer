@@ -1,0 +1,62 @@
+{
+  "date": "2026-05-07",
+  "market_phase": "收盘后",
+  "data_cutoff": "2026-05-07 15:10",
+  "indices": {
+    "shanghai": {
+      "close": "待补充",
+      "change_pct": "待补充"
+    },
+    "shenzhen": {
+      "close": "待补充",
+      "change_pct": "待补充"
+    },
+    "chinext": {
+      "close": "待补充",
+      "change_pct": "待补充"
+    },
+    "star50": {
+      "close": "待补充",
+      "change_pct": "待补充"
+    }
+  },
+  "turnover": {
+    "today": "待补充",
+    "yesterday": "待补充",
+    "delta": "待补充"
+  },
+  "breadth": {
+    "up_count": "待补充",
+    "down_count": "待补充",
+    "limit_up": "待补充",
+    "limit_down": "待补充"
+  },
+  "themes": {
+    "strongest": "待补充",
+    "second": "待补充",
+    "weakest": "待补充"
+  },
+  "catalyst": {
+    "news": "待补充",
+    "flow": "待补充",
+    "overseas": "待补充"
+  },
+  "leaders": {
+    "leader_1": {
+      "name": "待补充",
+      "code": "待补充",
+      "reason": "待补充"
+    },
+    "leader_2": {
+      "name": "待补充",
+      "code": "待补充",
+      "reason": "待补充"
+    },
+    "leader_3": {
+      "name": "待补充",
+      "code": "待补充",
+      "reason": "待补充"
+    }
+  },
+  "one_line_judgement": "今天不是X，而是Y"
+}
