@@ -313,33 +313,51 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 
 ### 8c. 封面生成流程
 
-**Step 1：生成封面 HTML**
+封面核心思路：**用情绪插画代替数字图表**，读者一眼就感受到今天行情怎样。不放指数点位，不放成交额。
 
-文件：`output/stock_review_YYYYMMDD_cover.html`，尺寸固定 900×500px。
+**Step 1：根据核心判断选择情绪，生成插画**
 
-```css
-/* 必须用深色渐变，禁止浅色背景 */
-background: linear-gradient(135deg, #0a0e1a 0%, #1a2744 60%, #0d1f3c 100%);
-/* 三要素：核心判断（大字）+ 金融色系 + 日期 */
-/* 关键数字用红色 #ff4d4f 或金色 #ffd666 强调 */
-```
+从 Step 3 的核心结论判断市场情绪，对应关系：
 
-详细配色方案见 `references/cover-design.md`。
+| 行情 | 情绪 | 人物表现 |
+|------|------|---------|
+| 大涨 +1.5%+ | 亢奋欢呼 | 跳起来庆祝，背景绿色屏幕 |
+| 小涨 +0.5~1.5% | 满意轻松 | 竖拇指微笑 |
+| 震荡横盘 | 迷茫困惑 | 挠头，周围漂浮问号 |
+| 小跌 -0.5~1.5% | 担忧皱眉 | 盯着手机屏幕发愁 |
+| 大跌 -1.5%+ | 崩溃沮丧 | 捂脸，背景红色下跌箭头 |
+| 暴跌 -3%+ | 惊吓绝望 | 夸张惊恐表情，从K线悬崖坠落 |
+| 主线切换 | 慌乱奔跑 | 在两块屏幕之间来回跑 |
+| AI/科技强势 | 热血冲劲 | 骑火箭冲天，科技感元素 |
 
-**Step 2：Playwright 截图**
+调用 `image-generator` skill，使用 `references/cover-design.md` 第二章对应提示词，指定 `size: 1792×1024`（16:9横版）。
 
-必须严格按顺序：`resize(900,500)` → `navigate` → `screenshot`，不能省略 resize。
+输出：`output/stock_review_YYYYMMDD_illus.png`
 
-file:// 协议被 Playwright 拦截时，先启动本地 HTTP 服务：
+**Step 2：选择封面方案**
+
+- **简单版（推荐赶时间时）**：直接用插画作为封面 PNG，跳到 Step 4
+- **完整版**：插画作背景 + 标题文字叠加，继续 Step 3
+
+**Step 3（完整版）：生成文字叠加 HTML**
+
+文件：`output/stock_review_YYYYMMDD_cover.html`
+
+把插画路径填入模板 `<img class="cover-bg" src="...">` 里，叠加标题和日期文字。完整 HTML 模板见 `references/cover-design.md` 第四章。
+
+用本地 HTTP 服务访问（file:// 被 Playwright 拦截）：
 ```bash
-python -m http.server 18508   # 在 output/ 目录下运行
-# 然后 navigate: http://localhost:18508/stock_review_YYYYMMDD_cover.html
+python -m http.server 18508   # 在 output/ 目录运行
 ```
 
-**Step 3：用 Read 工具验证截图**
-- [ ] 文字清晰，无截断
-- [ ] 背景为深色
-- [ ] 日期正确
+Playwright 截图顺序不能改变：`resize(900,500)` → `navigate` → `screenshot`
+
+输出：`output/stock_review_YYYYMMDD_cover.png`
+
+**Step 4：用 Read 工具验证**
+- [ ] 人物表情清晰，情绪一眼可辨
+- [ ] 插画中没有出现任何数字或文字（文字由叠加层提供）
+- [ ] 标题文字可读，遮罩不过重
 
 ### 8d. 文件命名规范
 
