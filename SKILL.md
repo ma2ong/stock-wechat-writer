@@ -260,77 +260,95 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 
 ## Step 8：排版、配图与封面
 
-详细封面设计规范见 `references/cover-design.md`。
+详细封面规范见 `references/cover-design.md`，HTML 排版模板见 `references/writing_template.md`。
 
-### 8a. 正文排版（md2wechat-skill）
+### 8a. 正文 HTML 排版
 
-正文 Markdown 定稿后，调用 `md2wechat-skill` 转换为公众号 HTML：
-- 触发时机：L1-L4 自检全部通过之后
-- 输出产物：可直接粘贴进公众号编辑器的 HTML 片段
+**优先使用内置模板直接生成 HTML，不依赖 md2wechat-skill（API key 不稳定）。**
+
+完整 HTML 模板在 `references/writing_template.md` → "HTML 排版模板"章节，复制模板后填入当日数据。
+
+**排版设计系统（来自 xiaohu-wechat-format 仓库）：**
+
+| 设计要素 | 规范 |
+|---------|------|
+| 页面背景 | `#f0f4f8`（浅蓝灰） |
+| 卡片背景 | `#ffffff` + `box-shadow: 0 4px 16px rgba(58,65,80,0.06)` |
+| 主色调 | `#1a3a5c`（深蓝）/ `#4a7c9b`（中蓝）|
+| 字号 | 正文 16px，列表 15px，标签 10-11px |
+| 行高 | 1.75-1.85 |
+| 字间距 | 0.3-0.5px |
+
+**三条硬性排版规则：**
+
+1. **禁止 `display:flex`**——微信渲染不稳定，多列布局一律用 `<table>`
+2. **禁止 `<style>` 标签**——微信会过滤，所有样式必须内联 `style="..."`
+3. **禁止 `position:absolute/fixed`**——破坏微信文章流式布局
+
+**标准页面结构（从上到下）：**
+
+```
+① 标题卡片（深蓝渐变背景）
+② 数据看板（4格 table 布局，带彩色顶边框）
+③ 导语卡片（开篇判断，2段）
+④ Section 01 卡片（正文主体）
+⑤ Section 02 卡片（观察点/分析）
+⑥ Section 03 卡片（可验证判断，编号列表）
+⑦ 风险提示（灰色小字）
+⑧ 互动引导（深蓝底，和标题卡片呼应）
+```
+
+如果调用 md2wechat-skill 失败（API key 缺失），直接按模板手动生成 HTML，不要等待。
 
 ### 8b. 配图决策
 
-根据内容类型选择配图方式：
+| 内容需求 | 方式 |
+|----------|------|
+| 封面图 | HTML 模板 → Playwright 截图（900×500px）|
+| 数据对比图、热力图 | HTML 图表 → Playwright 截图 |
+| 行情氛围图 | image-generator skill |
+| 截图说明数据 | 直接截 akshare 输出 |
 
-| 内容需求 | 方式 | 说明 |
-|----------|------|------|
-| 封面图 | HTML 模板 → Playwright 截图 | 可控、文字精准，金融数字不会出错 |
-| 行情走势图、K线 | image-generator skill | 概念性/氛围类图片，不要求精确数字 |
-| 数据对比表格、板块热力图 | HTML 图表 → Playwright 截图 | 数字精确，样式可复用 |
-| 真实界面引用 | 截图 | 引用 akshare 输出或交易软件界面时 |
-
-**原则：封面一定要，正文配图按需加，不强制每篇都有正文配图。**
+原则：封面必须有，正文配图按需加，不强制每篇都有。
 
 ### 8c. 封面生成流程
 
-**Step 1：生成 HTML 封面文件**
+**Step 1：生成封面 HTML**
 
-文件命名：`output/cover-stock-YYYYMMDD.html`
+文件：`output/stock_review_YYYYMMDD_cover.html`，尺寸固定 900×500px。
 
-封面内容要求：
-- 核心判断句（不超过16字，当天最强结论）
-- 日期标注
-- 可选：关键数字（指数/成交额）
-
-CSS 规范（借鉴 vibe-writer-pro）：
 ```css
-/* 尺寸固定 900×500px，禁止溢出 */
-body { width: 900px; height: 500px; overflow: hidden; margin: 0; }
-/* 深色渐变底，金融色系 */
+/* 必须用深色渐变，禁止浅色背景 */
 background: linear-gradient(135deg, #0a0e1a 0%, #1a2744 60%, #0d1f3c 100%);
-/* 主文字：白色大字 + 金色/红色强调 */
-/* 禁止使用浅色背景 + 黑字的"PPT风" */
+/* 三要素：核心判断（大字）+ 金融色系 + 日期 */
+/* 关键数字用红色 #ff4d4f 或金色 #ffd666 强调 */
 ```
 
-**Step 2：Playwright 截图 → PNG**
+详细配色方案见 `references/cover-design.md`。
 
+**Step 2：Playwright 截图**
+
+必须严格按顺序：`resize(900,500)` → `navigate` → `screenshot`，不能省略 resize。
+
+file:// 协议被 Playwright 拦截时，先启动本地 HTTP 服务：
 ```bash
-# 确认 CDP Proxy 已启动
-bash ~/.claude/skills/web-access/scripts/check-deps.sh
-
-# 截图前必须先 resize，再导航，再截图
-# resize: 900×500
-# navigate: file:///path/to/cover-stock-YYYYMMDD.html
-# screenshot → output/cover-stock-YYYYMMDD.png
+python -m http.server 18508   # 在 output/ 目录下运行
+# 然后 navigate: http://localhost:18508/stock_review_YYYYMMDD_cover.html
 ```
 
-每张截图必须按顺序：resize → navigate → screenshot，不能省略 resize 步骤。
-
-**Step 3：验证封面**
-
-截图完成后用 Read 工具查看图片，确认：
-- [ ] 文字清晰可读，无截断
-- [ ] 背景不是白色或浅色
+**Step 3：用 Read 工具验证截图**
+- [ ] 文字清晰，无截断
+- [ ] 背景为深色
 - [ ] 日期正确
 
 ### 8d. 文件命名规范
 
 ```
 output/
-├── stock_review_YYYYMMDD.md          # 正文 Markdown
-├── stock_review_YYYYMMDD.html        # 公众号 HTML（md2wechat 输出）
-├── cover-stock-YYYYMMDD.html         # 封面 HTML 模板
-└── cover-stock-YYYYMMDD.png          # 封面截图（推送用）
+├── stock_review_YYYYMMDD.md               # 正文 Markdown
+├── stock_review_YYYYMMDD.html             # 公众号 HTML（排版完成版）
+├── stock_review_YYYYMMDD_cover.html       # 封面 HTML 模板
+└── stock_review_YYYYMMDD_cover.png        # 封面截图（推送用）
 ```
 
 ---
