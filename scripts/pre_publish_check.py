@@ -49,6 +49,28 @@ WEAK_SOURCE_PATTERNS = [
 
 SOURCE_HINT_PATTERN = re.compile(r"(来源|数据来源|财联社|证券时报|证券之星|格隆汇|东方财富|同花顺|akshare|雪球)")
 
+INTERNAL_PROCESS_PATTERNS = [
+    re.compile(r"(用户|你跟我说|你要求|我之前写错|刚才那版|以后复盘|写作规则|skill|提示词)"),
+]
+
+FIXED_SECTION_TITLES = [
+    "先说结论",
+    "为什么今天会这样走",
+    "真正的主线是什么",
+    "哪些方向只是陪跑",
+    "明天看什么",
+    "最后一句话",
+]
+
+ACTION_PATTERN = re.compile(r"(低吸|试错|关注|推荐|可做|加仓|买入|参与)")
+DEPTH_PATTERNS = {
+    "资金": re.compile(r"(资金|成交额|放量|缩量|量能|买盘|卖盘|主力|换手)"),
+    "情绪": re.compile(r"(情绪|涨停|跌停|连板|断板|妖股|龙头|亏钱效应|炸板)"),
+    "技术": re.compile(r"(均线|5日线|10日线|20日线|平台|前高|缺口|长上影|长下影|破位|趋势线)"),
+    "横向": re.compile(r"(横向|同板块|跟风|核心股|共振|抱团|扩散|分化)"),
+    "纵向": re.compile(r"(纵向|近3|近 3|近5|近 5|连续|强化|分歧|退潮|反转|修复)"),
+}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -87,6 +109,19 @@ def check_article(text: str) -> tuple[list[str], list[str]]:
     for label, pattern in FIXED_FORMULA_PATTERNS:
         if pattern.search(text):
             warnings.append(f"检测到固定句式风险：{label}")
+
+    for pattern in INTERNAL_PROCESS_PATTERNS:
+        if pattern.search(text):
+            failures.append("正文包含内部指令/纠错过程痕迹；公众号文章只能面向读者")
+
+    fixed_hits = [title for title in FIXED_SECTION_TITLES if re.search(rf"^##\s*{re.escape(title)}", text, re.M)]
+    if len(fixed_hits) >= 4:
+        warnings.append("章节结构接近固定模板；确认是否已根据当天盘面重组结构")
+
+    if ACTION_PATTERN.search(text):
+        missing_depth = [name for name, pattern in DEPTH_PATTERNS.items() if not pattern.search(text)]
+        if missing_depth:
+            failures.append(f"出现操作建议但缺少深度分析维度：{', '.join(missing_depth)}")
 
     if any(pattern.search(text) for pattern in WEAK_SOURCE_PATTERNS) and not SOURCE_HINT_PATTERN.search(text):
         warnings.append("检测到传闻/未来事件表述，但文中缺少来源提示；不要把单源传闻写成主因")
