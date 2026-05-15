@@ -63,6 +63,21 @@ FIXED_SECTION_TITLES = [
 ]
 
 ACTION_PATTERN = re.compile(r"(低吸|试错|关注|推荐|可做|加仓|买入|参与)")
+ACTION_POSITIVE_PATTERN = re.compile(
+    r"((可以|可|建议|考虑|适合|能|能够|继续|尝试).{0,12}(低吸|试错|关注|推荐|加仓|买入|参与|做)|"
+    r"(低吸|试错|加仓|买入|参与))"
+)
+ACTION_NEGATION_PATTERN = re.compile(r"(不|不能|不要|别|暂不|先不|严禁|回避|等待|等确认).{0,10}(低吸|试错|关注|推荐|加仓|买入|参与|做)")
+CONDITION_PATTERN = re.compile(r"(如果|若|只有|等|等待|站回|收回|突破|回踩|不破|跌破|放量|缩量|确认|企稳|反包)")
+POINT_PATTERN = re.compile(r"(\d+(?:\.\d+)?|5日线|10日线|20日线|均线|平台|前高|缺口|支撑|压力|低点|高点)")
+INVALIDATION_PATTERN = re.compile(r"(风险位|失效|跌破|止损|不破|破位|回避|减仓|防守|不能|取消|放弃)")
+STOCK_CASE_PATTERN = re.compile(r"([\u4e00-\u9fa5A-Za-z]{2,12}[（(](?:\d{6}|hk\d{5}|[A-Z]{1,5})[）)]|\b(?:[036]\d{5}|[89]\d{5})\b)", re.I)
+VETO_RISK_PATTERN = re.compile(
+    r"(高位放量长阴|放量长阴|放量长上影|高开低走|冲高回落|龙头断板|妖股断板|"
+    r"亏钱效应扩散|集体破位|单票独涨|板块不跟|只涨一天|低位反弹|超跌反弹|"
+    r"减持|监管|业绩变脸|业绩预亏|解禁|诉讼|传闻|网传)"
+)
+REVERSAL_EVIDENCE_PATTERN = re.compile(r"(趋势反转|放量突破|站回|收回|连续.{0,8}不破|平台突破|均线修复|板块共振|资金回流|反包)")
 DEPTH_PATTERNS = {
     "资金": re.compile(r"(资金|成交额|放量|缩量|量能|买盘|卖盘|主力|换手)"),
     "情绪": re.compile(r"(情绪|涨停|跌停|连板|断板|妖股|龙头|亏钱效应|炸板)"),
@@ -70,6 +85,16 @@ DEPTH_PATTERNS = {
     "横向": re.compile(r"(横向|同板块|跟风|核心股|共振|抱团|扩散|分化)"),
     "纵向": re.compile(r"(纵向|近3|近 3|近5|近 5|连续|强化|分歧|退潮|反转|修复)"),
 }
+
+
+def split_paragraphs(text: str) -> list[str]:
+    return [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+
+
+def has_positive_action(text: str) -> bool:
+    if not ACTION_POSITIVE_PATTERN.search(text):
+        return False
+    return ACTION_NEGATION_PATTERN.search(text) is None
 
 
 def parse_args() -> argparse.Namespace:
@@ -122,6 +147,27 @@ def check_article(text: str) -> tuple[list[str], list[str]]:
         missing_depth = [name for name, pattern in DEPTH_PATTERNS.items() if not pattern.search(text)]
         if missing_depth:
             failures.append(f"出现操作建议但缺少深度分析维度：{', '.join(missing_depth)}")
+
+        if has_positive_action(text) and not CONDITION_PATTERN.search(text):
+            failures.append("出现正向操作建议但缺少条件句：必须写清楚如果/等待/站回/突破/回踩等触发条件")
+
+        if has_positive_action(text) and not POINT_PATTERN.search(text):
+            failures.append("出现正向操作建议但缺少点位或结构锚：必须写具体价格、均线、平台、前高、支撑或压力")
+
+        if has_positive_action(text) and not INVALIDATION_PATTERN.search(text):
+            failures.append("出现正向操作建议但缺少失效条件：必须写风险位、跌破/不破、止损、回避或减仓条件")
+
+    stock_cases = STOCK_CASE_PATTERN.findall(text)
+    if len(stock_cases) < 2:
+        failures.append("正文具名案例不足：至少需要2个公司名/股票代码+具体数字，证明不是泛泛复盘")
+
+    for paragraph in split_paragraphs(text):
+        if VETO_RISK_PATTERN.search(paragraph) and has_positive_action(paragraph):
+            failures.append("风险否决项附近出现正向操作建议；高位放量长阴、断板退潮、低位一日反弹等只能写观察/回避/等修复")
+            break
+
+    if re.search(r"(低位|超跌|前期跌|跌得多)", text) and has_positive_action(text) and not REVERSAL_EVIDENCE_PATTERN.search(text):
+        failures.append("低位/超跌方向出现正向操作建议，但缺少趋势反转证据：放量突破、站回均线、连续不破、板块共振或资金回流")
 
     if any(pattern.search(text) for pattern in WEAK_SOURCE_PATTERNS) and not SOURCE_HINT_PATTERN.search(text):
         warnings.append("检测到传闻/未来事件表述，但文中缺少来源提示；不要把单源传闻写成主因")

@@ -54,6 +54,8 @@ def build_markdown(data: dict[str, Any]) -> str:
     themes = data.get("themes", {})
     catalyst = data.get("catalyst", {})
     leaders = data.get("leaders", {})
+    judgement = data.get("judgement_card", {})
+    recommendations = data.get("recommendation_filter", {})
     conclusion = data.get("one_line_judgement") or data.get("conclusion") or "待补充"
 
     parts = [
@@ -93,6 +95,18 @@ def build_markdown(data: dict[str, Any]) -> str:
         line("核心龙头1", format_leader(leaders.get("leader_1"))),
         line("核心龙头2", format_leader(leaders.get("leader_2"))),
         line("核心龙头3", format_leader(leaders.get("leader_3"))),
+        "",
+        "## 写作前判断卡",
+        line("市场类型", judgement.get("market_type")),
+        line("核心矛盾", judgement.get("core_conflict")),
+        line("正文应该围绕", judgement.get("write_focus")),
+        line("正文不应该写", judgement.get("avoid_focus")),
+        "",
+        "## 关注标的过滤",
+        line("可写入推荐池", recommendations.get("approved")),
+        line("只能观察", recommendations.get("watch_only")),
+        line("暂时回避", recommendations.get("avoid")),
+        line("明确剔除", recommendations.get("excluded")),
         "",
         "## 一句话判断",
         f"- {conclusion}",

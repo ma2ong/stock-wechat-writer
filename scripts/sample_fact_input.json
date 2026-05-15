@@ -58,5 +58,17 @@
       "reason": "待补充"
     }
   },
+  "judgement_card": {
+    "market_type": "待补充",
+    "core_conflict": "待补充",
+    "write_focus": "待补充",
+    "avoid_focus": "待补充"
+  },
+  "recommendation_filter": {
+    "approved": "待补充",
+    "watch_only": "待补充",
+    "avoid": "待补充",
+    "excluded": "待补充"
+  },
   "one_line_judgement": "今天不是X，而是Y"
 }

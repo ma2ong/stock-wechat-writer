@@ -54,6 +54,19 @@
 
 利好消息但股价跌、利空消息但股价涨——背离才是最值得写的角度。
 
+### 2a. 写作前判断卡
+
+正文之前必须先完成 `references/pre-writing-judgement-card.md`。判断卡不进入公众号正文，但它决定今天写什么、不写什么、能不能推荐。
+
+判断卡包含：
+
+- 市场类型：强趋势分歧、主线切换、情绪退潮、指数护盘、消息兑现、普涨高潮、缩量震荡
+- 主线筛选：谁是真主线，谁只是反弹或跟风
+- 关注标的判断：趋势、龙头、资金、情绪、横向、纵向六维证据
+- 交易计划：触发条件、风险位、失效信号
+
+判断卡写不清楚，不进入正文。没有机会时，文章可以短，但判断卡不能省。
+
 ### 2b. 趋势推荐闸门
 
 涉及关注标的时，只看当前趋势主线。
@@ -107,6 +120,25 @@
 | 纵向 | 近 3-5 日是强化、分歧、退潮还是反转 |
 
 缺少这些证据，只能写观察或回避，不能写推荐。
+
+### 2e. 风险否决规则
+
+`references/risk-veto-rules.md` 是买点之前的硬闸门。出现以下情况，只能写观察/回避/等修复，不能写低吸、试错、买入、加仓、可做或推荐：
+
+- 高位放量长阴，尤其收盘接近全天低点
+- 放量长上影或高开低走
+- 龙头/妖股断板，高位亏钱效应扩散
+- 主线核心股集体破位
+- 单票独涨，板块不跟
+- 低位股只涨一天，没有连续反转证据
+- 减持、监管、业绩变脸、解禁、诉讼等确定风险
+- 单源传闻或社交热议，没有价格和成交额验证
+
+### 2f. 策略战法 Playbook
+
+`references/trading-strategy-playbook.md` 提供可选判断模块：龙头策略、缩量回踩、放量突破、情绪周期、反包修复、底部放量反转、箱体震荡。
+
+战法只服务于判断，不固定成文章结构。低位反转模型只能用于观察，不能因为一天上涨直接推荐。
 
 ### 3. 四层自检（四遍独立过）
 
@@ -169,7 +201,28 @@
 → md2wechat-skill 转公众号 HTML
 → 封面 PNG（Playwright 截图）
 → pre_publish_check.py 发稿前检查
+→ judgement_ledger.py 记录核心判断（建议）
 → push_stock_review_draft.py 推送草稿箱
+```
+
+### 9. 历史判断复盘
+
+`scripts/judgement_ledger.py` 用于记录每篇复盘的核心判断、观察条件和失效条件，便于 3/5/10 个交易日后校准。
+
+```bash
+python scripts/judgement_ledger.py add \
+  --date 2026-05-15 \
+  --market-type "强趋势分歧" \
+  --core-judgement "强趋势还在，但跟风开始掉队" \
+  --mainline "CPO / 算力硬件" \
+  --watch-condition "核心股不破5日线且成交额维持" \
+  --invalidation "核心股放量跌破10日线，亏钱效应扩散"
+```
+
+查看到期未复盘判断：
+
+```bash
+python scripts/judgement_ledger.py due --as-of 2026-05-22
 ```
 
 ---
@@ -183,6 +236,9 @@ stock-wechat-writer/
 ├── references/
 │   ├── market-verification.md        # 行情核对手册（8个必核字段）
 │   ├── data_sources.md               # 数据源优先级 + opencli 命令
+│   ├── pre-writing-judgement-card.md # 写作前判断卡
+│   ├── risk-veto-rules.md            # 风险否决规则
+│   ├── trading-strategy-playbook.md  # 策略战法判断模块
 │   ├── recap-writing-playbook.md     # 写作手册（开头/主线/明日/CTA）
 │   ├── writing_template.md           # 文章模板 + 发稿前自查
 │   ├── ai-antipatterns.md            # 财经专项 AI 味消除（禁用词+替换）
@@ -190,6 +246,7 @@ stock-wechat-writer/
 └── scripts/
     ├── pre_publish_check.py          # 发稿前自动检查脚本
     ├── generate_fact_card.py         # 事实卡片生成辅助
+    ├── judgement_ledger.py           # 历史判断记录与复盘校准
     └── sample_fact_input.json        # 示例输入
 ```
 
