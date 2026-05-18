@@ -38,6 +38,18 @@ description: 一键生成A股行情分析微信公众号文章。融合DeepEar�
 
 **原则：先核对，再写文章。事实卡片写不清楚，就不进入写作阶段。**
 
+### 2a0. 工具与来源选择
+
+先使用当前环境能直接调用的工具，不要只靠模型记忆或二手总结。
+
+优先级：
+1. 本地脚本 / `daily_stock_analysis` / 已有行情采集脚本，例如 `scripts/fetch_eastmoney_snapshot.py`。
+2. MCP / 浏览器 / 官方网页，用于交易所公告、公司公告、东方财富、同花顺、Wind/万得页面核对。
+3. `opencli`，用于财联社、雪球、微博、东方财富/同花顺相关搜索。
+4. Web 搜索作为 fallback，优先交易所、公司公告、东方财富、同花顺、证券时报、财联社、Wind/万得口径。
+
+所有 LLM 输出只当线索，不当事实来源。
+
 ### 2a. 行情硬数据（akshare）
 
 ```python
@@ -52,7 +64,24 @@ df_sector = ak.stock_board_industry_summary_ths()
 
 关键字段：指数收盘点位、涨跌幅、两市成交额、上涨/下跌家数、板块涨跌排行。
 
-### 2b. 实时财经新闻（opencli）
+### 2b. 代码、简称、资金口径硬校验
+
+正文只要出现 `公司名（股票代码）`，必须先完成代码-名称匹配校验。
+
+```bash
+python scripts/pre_publish_check.py --article output/stock_review_YYYYMMDD.md
+```
+
+检查脚本会调用东方财富实时行情接口校验股票简称。若出现 `大普微（688469）` 这类代码-名称不匹配，直接失败，不允许推送。
+
+规则：
+- 不能校验的代码默认视为未通过。只有已经用同花顺、Wind/万得、交易所手工核对，并在事实卡片里写明来源时，才允许临时使用 `--allow-unverified-stock-names`。
+- 首次出现个股，优先写行情软件简称，尤其是 `-U`、`-UW`、`A`、`B` 等后缀。
+- 股票代码、龙虎榜席位、外资金额、融资余额、主力净流入等数字必须回到东方财富、同花顺、Wind/万得、交易所公告或官方源核对。
+- 东方财富 `主力净流入` 是资金流模型口径，不能写成“外资买入”或“机构确认”。
+- “深股通专用”“机构专用席位”等只能来自龙虎榜/交易所/东方财富/同花顺/Wind，不能凭社媒或 LLM 输出写。
+
+### 2c. 实时财经新闻（opencli）
 
 ```bash
 # 雪球热议
@@ -63,13 +92,31 @@ opencli cailian --category hot --limit 15
 
 # 雪球指数讨论
 opencli xueqiu stock 000001 --comments
+
+# 如果 opencli 支持 web 搜索，补充东方财富/同花顺/Wind 口径
+opencli web search "东方财富 今日A股 收评 主线" --limit 10
+opencli web search "同花顺 今日涨停梯队 龙虎榜" --limit 10
+opencli web search "Wind 今日A股 行业涨跌 资金流" --limit 10
 ```
 
-### 2c. 市场信号（alphaear skill）
+### 2c0. 东方财富快照（本地脚本）
+
+用于快速核对指数、个股最新价、涨跌幅、成交额、换手率和东方财富资金流模型口径。
+
+```bash
+python scripts/fetch_eastmoney_snapshot.py --indices
+python scripts/fetch_eastmoney_snapshot.py --codes 000988 301666 603986 688469
+```
+
+注意：脚本里的 `main_net_inflow_eastmoney` 只代表东方财富资金流模型，不等于外资或机构席位。
+
+如果脚本返回 `eastmoney_push2_unavailable`，说明没有取到实时快照，不能把结果当作价格、涨跌幅、成交额来源；改用 akshare、同花顺、Wind/万得或网页/MCP 核对。
+
+### 2d. 市场信号（alphaear skill）
 
 触发 `alphaear-signal-tracker` skill 获取 DeepEar 高置信度信号，用于补充主线解释，不替代硬数据。
 
-### 2d. 港股/美股映射（yfinance）
+### 2e. 港股/美股映射（yfinance）
 
 ```python
 import yfinance as yf
@@ -77,7 +124,7 @@ import yfinance as yf
 yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 ```
 
-### 2e. 整理事实卡片
+### 2f. 整理事实卡片
 
 ```markdown
 日期：YYYY-MM-DD
@@ -108,6 +155,11 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 - 资金解释：（来源：）
 - 海外映射：
 
+个股硬校验：
+- 公司名-代码：（已核对 / 未核对）
+- 资金口径：（东方财富 / 同花顺 / Wind / 龙虎榜 / 交易所 / 无）
+- 是否存在同名、近名、代码误配风险：
+
 情绪与价格：
 - 今日最重要消息：（来源：）
 - 消息情绪方向：正面 / 负面 / 中性
@@ -125,7 +177,7 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 
 详细规则见 `references/market-verification.md` 和 `references/data_sources.md`。
 
-### 2f. 催化可信度闸门（必须执行）
+### 2g. 催化可信度闸门（必须执行）
 
 进入写作前，把“为什么今天这样走”的候选原因分成高 / 中 / 低三档：
 
@@ -137,7 +189,7 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 
 尤其注意：未来事件（如“明天会见”“即将签约”“据传大单”）必须等盘面验证。没有价格和成交额响应时，只能写“市场在等待验证”，不能写成今天行情的主因。
 
-### 2g. 写作前判断卡（必须执行）
+### 2h. 写作前判断卡（必须执行）
 
 在进入正文前，先按 `references/pre-writing-judgement-card.md` 完成判断卡。判断卡不是正文，不推送给读者，但它决定今天文章怎么写。
 

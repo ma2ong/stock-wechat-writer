@@ -6,6 +6,19 @@
 
 ## 一、数据源优先级
 
+### 第零优先级：本地 MCP / opencli / 现有终端能力
+
+先看当前环境能直接调用什么，不要只依赖模型记忆。
+
+可用能力优先级：
+
+1. **本地脚本/API**：`scripts/fetch_eastmoney_snapshot.py`、`scripts/pre_publish_check.py`、`daily_stock_analysis`、已有行情采集脚本。
+2. **MCP / 插件**：如果环境暴露了财经、浏览器、网页抓取、数据库或文件 MCP，优先用它读取官方网页、行情页、公告页。
+3. **opencli**：用于财联社、雪球、微博、东方财富/同花顺相关页面的实时搜索和热议采集。
+4. **Web 搜索**：只作为 fallback，优先交易所、公司公告、东方财富、同花顺、证券时报、财联社、Wind/万得口径。
+
+采集前先写清楚：今天要回答的是“发生了什么”“谁最强”“为什么强”“能不能持续”。不同问题用不同来源。
+
 ### 第一优先级：行情硬数据
 
 用于核对指数、成交额、宽度、板块排行。
@@ -30,6 +43,49 @@ ak.stock_market_pe_lg()
 # 北向资金（沪股通+深股通）
 ak.stock_em_hsgt_hist(symbol="北上资金")
 ```
+
+**东方财富实时接口（akshare 不稳定时首选 fallback）**
+
+优先用本仓库脚本：
+
+```powershell
+python scripts\fetch_eastmoney_snapshot.py --indices
+python scripts\fetch_eastmoney_snapshot.py --codes 000988 301666 603986 688469
+```
+
+如果脚本返回 `eastmoney_push2_unavailable`，说明快照没有取到，不能把该结果当作价格、涨跌幅、成交额来源；只能临时参考已缓存的代码简称，并改用 akshare、同花顺、Wind/万得或网页/MCP 核对行情。
+
+也可以手工请求接口：
+
+```powershell
+# 指数快照：上证、深成指、创业板、科创50
+$url='https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&invt=2&fields=f12,f14,f2,f3,f4,f6,f15,f16,f17,f18&secids=1.000001,0.399001,0.399006,1.000688&ut=bd1d9ddb04089700cf9c27f6f7426281'
+Invoke-RestMethod -Uri $url -Headers @{'User-Agent'='Mozilla/5.0'; 'Referer'='https://quote.eastmoney.com/'}
+
+# 个股快照：沪市 1.xxxxxx，深市 0.xxxxxx
+$url='https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&invt=2&fields=f12,f14,f2,f3,f6,f8,f15,f16,f17,f18,f62&secids=0.000988,0.301666,1.603986&ut=bd1d9ddb04089700cf9c27f6f7426281'
+Invoke-RestMethod -Uri $url -Headers @{'User-Agent'='Mozilla/5.0'; 'Referer'='https://quote.eastmoney.com/'}
+```
+
+东方财富字段常用含义：
+
+| 字段 | 含义 |
+|---|---|
+| `f12` | 股票代码 |
+| `f14` | 股票简称 |
+| `f2` | 最新价 |
+| `f3` | 涨跌幅 |
+| `f6` | 成交额 |
+| `f8` | 换手率 |
+| `f62` | 东方财富资金流模型口径 |
+
+注意：`f62` 只能写“东方财富口径主力净流入/净流出”，不能直接写成“外资/机构买入”。
+
+**同花顺 / Wind / 万得**
+
+- 同花顺用于核对板块涨幅、涨停梯队、概念归属和龙虎榜。
+- Wind/万得用于核对指数、行业涨跌、北向/融资/龙虎榜等专业口径。
+- 如果 Wind 数据和东方财富/同花顺不一致，正文不用硬写数字，先写“不同口径略有差异”，事实卡片保留差异。
 
 **yfinance（港股/美股/ADR）**
 
@@ -63,6 +119,11 @@ opencli xueqiu search "[板块名]" --limit 15
 
 # 微博热搜（A股相关）
 opencli weibo search "A股" --limit 10
+
+# 东方财富/同花顺/Wind 相关关键词搜索（如果 opencli 支持）
+opencli web search "东方财富 长鑫科技 兆易创新 佰维存储 5月18日" --limit 10
+opencli web search "同花顺 长鑫科技 存储芯片 5月18日" --limit 10
+opencli web search "Wind 长鑫科技 IPO 已问询 兆易创新" --limit 10
 ```
 
 **alphaear skill**
@@ -119,6 +180,9 @@ opencli zhihu search "A股 今日" --limit 10
 | 数据源 | 负责 | 不负责 |
 |--------|------|--------|
 | akshare | 指数点位、涨跌幅、成交额、板块排行、宽度 | 为什么涨 |
+| 东方财富 | 个股/指数快照、成交额、换手率、资金流模型、龙虎榜页面 | 把主力资金等同外资/机构 |
+| 同花顺 | 板块归属、概念热度、涨停梯队、龙虎榜页面 | 单独作为事实唯一来源 |
+| Wind/万得 | 专业资金口径、指数行业、融资融券、机构口径 | 替代盘面价格确认 |
 | yfinance | 港美股、ADR、海外映射 | A股盘面 |
 | opencli cailian | 当日重要政策/消息、收盘口径 | 精确数字 |
 | opencli xueqiu | 市场情绪、热议个股/板块 | 事实核实 |
@@ -130,11 +194,13 @@ opencli zhihu search "A股 今日" --limit 10
 
 ```
 Step 1  akshare → 指数、成交额、板块排行、宽度
-Step 2  opencli cailian → 当日热门新闻，找主线催化
-Step 3  opencli xueqiu → 验证市场情绪，看热议方向
-Step 4  alphaear → 补充信号解释
-Step 5  yfinance → 如需写海外映射
-Step 6  整理成事实卡片，再进入写作
+Step 2  fetch_eastmoney_snapshot.py / 东方财富 / 同花顺 / Wind → 核对个股代码、简称、成交额、涨幅、板块身份、龙虎榜/资金口径
+Step 3  opencli cailian → 当日热门新闻，找主线催化
+Step 4  opencli xueqiu / weibo → 验证市场情绪，看热议方向
+Step 5  MCP / 浏览器 / 官方公告 → 核对重大事件、IPO、业绩、公告原文
+Step 6  alphaear → 补充信号解释
+Step 7  yfinance → 如需写海外映射
+Step 8  整理成事实卡片，再进入写作
 ```
 
 ---
@@ -145,3 +211,5 @@ Step 6  整理成事实卡片，再进入写作
 - **雪球热议 ≠ 市场共识**：散户舆论热点可能滞后主力行为，只用作情绪参考
 - **cailian 新闻顺序 ≠ 重要性排序**：要自己判断哪条新闻才是当天核心驱动
 - **alphaear 信号是辅助**：有高置信度信号时参考，没有时正常写，不等待
+- **LLM 输出不是数据源**：Claude、ChatGPT、Kimi 等生成的股票代码、龙虎榜、外资金额、业绩数字必须回到行情源/公告源核对。
+- **代码-名称先校验再写逻辑**：如果代码错了，后面的逻辑即使顺也不能用。

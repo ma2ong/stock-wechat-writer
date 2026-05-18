@@ -54,6 +54,8 @@ def build_markdown(data: dict[str, Any]) -> str:
     themes = data.get("themes", {})
     catalyst = data.get("catalyst", {})
     leaders = data.get("leaders", {})
+    source_check = data.get("source_check", {})
+    stock_verification = data.get("stock_verification", {})
     judgement = data.get("judgement_card", {})
     recommendations = data.get("recommendation_filter", {})
     conclusion = data.get("one_line_judgement") or data.get("conclusion") or "待补充"
@@ -90,6 +92,14 @@ def build_markdown(data: dict[str, Any]) -> str:
         line("新闻催化", catalyst.get("news")),
         line("资金解释", catalyst.get("flow")),
         line("海外映射", catalyst.get("overseas")),
+        "",
+        "## 来源与硬校验",
+        line("行情来源", source_check.get("market_data")),
+        line("新闻来源", source_check.get("news")),
+        line("资金/龙虎榜口径", source_check.get("flow_or_lhb")),
+        line("代码-名称核对", stock_verification.get("name_code")),
+        line("同名/近名风险", stock_verification.get("ambiguity_risk")),
+        line("未核对项", stock_verification.get("unverified")),
         "",
         "## 代表个股",
         line("核心龙头1", format_leader(leaders.get("leader_1"))),

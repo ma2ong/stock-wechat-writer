@@ -2,14 +2,20 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
+import subprocess
 from pathlib import Path
+from urllib.parse import urlencode
+from time import sleep
+from urllib.request import Request, build_opener, ProxyHandler
 
 
 REQUIRED_PATTERNS = {
     "title": re.compile(r"^#\s+.+", re.M),
     "risk_disclaimer": re.compile(r"风险提示|不构成.*投资建议|不构成.*买卖建议"),
     "tomorrow_view": re.compile(r"明天看什么|明天怎么看|明日展望|明天最关键|观察点"),
+    "source_hint": re.compile(r"来源|数据来源|东方财富|同花顺|Wind|万得|财联社|证券时报|证券之星|格隆汇|akshare|雪球"),
 }
 
 EMPTY_PHRASES = [
@@ -47,7 +53,7 @@ WEAK_SOURCE_PATTERNS = [
     re.compile(r"(明天|后天|接下来|未来两天).{0,30}(飞|来|访华|会见|签约|大单|协议)"),
 ]
 
-SOURCE_HINT_PATTERN = re.compile(r"(来源|数据来源|财联社|证券时报|证券之星|格隆汇|东方财富|同花顺|akshare|雪球)")
+SOURCE_HINT_PATTERN = re.compile(r"(来源|数据来源|财联社|证券时报|证券之星|格隆汇|东方财富|同花顺|Wind|万得|akshare|雪球)")
 
 INTERNAL_PROCESS_PATTERNS = [
     re.compile(r"(用户|你跟我说|你要求|我之前写错|刚才那版|以后复盘|写作规则|skill|提示词)"),
@@ -72,6 +78,10 @@ CONDITION_PATTERN = re.compile(r"(如果|若|只有|等|等待|站回|收回|突
 POINT_PATTERN = re.compile(r"(\d+(?:\.\d+)?|5日线|10日线|20日线|均线|平台|前高|缺口|支撑|压力|低点|高点)")
 INVALIDATION_PATTERN = re.compile(r"(风险位|失效|跌破|止损|不破|破位|回避|减仓|防守|不能|取消|放弃)")
 STOCK_CASE_PATTERN = re.compile(r"([\u4e00-\u9fa5A-Za-z]{2,12}[（(](?:\d{6}|hk\d{5}|[A-Z]{1,5})[）)]|\b(?:[036]\d{5}|[89]\d{5})\b)", re.I)
+STOCK_NAME_CODE_PATTERN = re.compile(
+    r"([\u4e00-\u9fa5A-Za-z][\u4e00-\u9fa5A-Za-zA-Za-z·\-\uff21\uff22\uff23\uff24\uff25\uff26\uff27\uff28\uff29\uff2a\uff2b\uff2c\uff2d\uff2e\uff2f\uff30\uff31\uff32\uff33\uff34\uff35\uff36\uff37\uff38\uff39\uff3a]{1,24})[（(](\d{6})[）)]"
+)
+STOCK_NAME_CACHE = Path(__file__).resolve().parents[1] / "references" / "stock_name_cache.json"
 VETO_RISK_PATTERN = re.compile(
     r"(高位放量长阴|放量长阴|放量长上影|高开低走|冲高回落|龙头断板|妖股断板|"
     r"亏钱效应扩散|集体破位|单票独涨|板块不跟|只涨一天|低位反弹|超跌反弹|"
@@ -100,10 +110,163 @@ def has_positive_action(text: str) -> bool:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--article", type=Path, required=True)
+    parser.add_argument(
+        "--skip-stock-name-check",
+        action="store_true",
+        help="Skip online stock code/name verification. Use only when data source is unavailable.",
+    )
+    parser.add_argument(
+        "--allow-unverified-stock-names",
+        action="store_true",
+        help="Do not fail when a stock code cannot be verified. Mismatched verified names still fail.",
+    )
     return parser.parse_args()
 
 
-def check_article(text: str) -> tuple[list[str], list[str]]:
+def market_prefix(code: str) -> str:
+    if code.startswith(("5", "6", "9")):
+        return "1"
+    return "0"
+
+
+def normalize_stock_name(value: str) -> str:
+    table = str.maketrans({
+        "Ａ": "A",
+        "Ｂ": "B",
+        "Ｈ": "H",
+        "Ｕ": "U",
+        "Ｗ": "W",
+        "－": "-",
+        "—": "-",
+        "　": "",
+        " ": "",
+    })
+    value = value.translate(table).upper()
+    value = re.sub(r"[-_]*(A|B|H|U|W|UW|U-W)$", "", value)
+    value = re.sub(r"[\s·()（）]", "", value)
+    return value
+
+
+def compatible_stock_name(written: str, official: str) -> bool:
+    left = normalize_stock_name(written)
+    right = normalize_stock_name(official)
+    if not left or not right:
+        return False
+    return (
+        left == right
+        or right.startswith(left)
+        or left.startswith(right)
+        or left.endswith(right)
+        or right in left
+    )
+
+
+def fetch_eastmoney_names(codes: set[str]) -> dict[str, str]:
+    if not codes:
+        return {}
+
+    names: dict[str, str] = {}
+    if STOCK_NAME_CACHE.exists():
+        try:
+            cached = json.loads(STOCK_NAME_CACHE.read_text(encoding="utf-8"))
+            names.update({code: str(cached[code]) for code in codes if code in cached})
+        except Exception:
+            pass
+
+    opener = build_opener(ProxyHandler({}))
+    for code in sorted(codes - set(names)):
+        secid = f"{market_prefix(code)}.{code}"
+        params = urlencode({
+            "secid": secid,
+            "fields": "f57,f58",
+            "ut": "bd1d9ddb04089700cf9c27f6f7426281",
+        }, safe=",:")
+        url = f"https://push2.eastmoney.com/api/qt/stock/get?{params}"
+        req = Request(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0",
+                "Referer": "https://quote.eastmoney.com/",
+            },
+        )
+        payload = None
+        last_exc: Exception | None = None
+        for attempt in range(3):
+            try:
+                with opener.open(req, timeout=15) as resp:
+                    payload = json.loads(resp.read().decode("utf-8"))
+                break
+            except Exception as exc:
+                last_exc = exc
+                if attempt < 2:
+                    sleep(0.8 * (attempt + 1))
+
+        if payload is None:
+            ps = (
+                "$OutputEncoding=[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;"
+                "$headers=@{'User-Agent'='Mozilla/5.0'; 'Referer'='https://quote.eastmoney.com/'};"
+                f"$r=Invoke-RestMethod -Uri '{url}' -Headers $headers -TimeoutSec 20;"
+                "$r | ConvertTo-Json -Depth 6"
+            )
+            try:
+                completed = subprocess.run(
+                    ["powershell", "-NoProfile", "-Command", ps],
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=35,
+                    check=True,
+                )
+                payload = json.loads(completed.stdout)
+            except Exception:
+                continue
+
+        data = payload.get("data") or {}
+        found_code = str(data.get("f57") or "")
+        found_name = str(data.get("f58") or "")
+        if found_code and found_name:
+            names[found_code] = found_name
+    return names
+
+
+def verify_stock_name_pairs(text: str, *, allow_unverified: bool = False) -> tuple[list[str], list[str]]:
+    pairs = [(name.strip(), code.strip()) for name, code in STOCK_NAME_CODE_PATTERN.findall(text)]
+    if not pairs:
+        return [], []
+
+    codes = {code for _, code in pairs}
+    try:
+        official_names = fetch_eastmoney_names(codes)
+    except Exception as exc:
+        return [], [f"股票代码-名称在线校验未完成：{exc}"]
+
+    failures: list[str] = []
+    warnings: list[str] = []
+    for written_name, code in pairs:
+        official_name = official_names.get(code)
+        if not official_name:
+            message = f"未能从东方财富/本地缓存校验股票代码：{code}。请用同花顺、Wind/万得或交易所手工核对后补入缓存"
+            if allow_unverified:
+                warnings.append(message)
+            else:
+                failures.append(message)
+            continue
+        if not compatible_stock_name(written_name, official_name):
+            failures.append(
+                f"股票代码-名称不匹配：正文写“{written_name}（{code}）”，东方财富为“{official_name}（{code}）”"
+            )
+        elif "-" in official_name and written_name != official_name:
+            warnings.append(f"股票简称建议写全：正文写“{written_name}（{code}）”，行情简称为“{official_name}（{code}）”")
+    return failures, warnings
+
+
+def check_article(
+    text: str,
+    *,
+    verify_stock_names: bool = True,
+    allow_unverified_stock_names: bool = False,
+) -> tuple[list[str], list[str]]:
     failures: list[str] = []
     warnings: list[str] = []
 
@@ -161,6 +324,14 @@ def check_article(text: str) -> tuple[list[str], list[str]]:
     if len(stock_cases) < 2:
         failures.append("正文具名案例不足：至少需要2个公司名/股票代码+具体数字，证明不是泛泛复盘")
 
+    if verify_stock_names:
+        stock_name_failures, stock_name_warnings = verify_stock_name_pairs(
+            text,
+            allow_unverified=allow_unverified_stock_names,
+        )
+        failures.extend(stock_name_failures)
+        warnings.extend(stock_name_warnings)
+
     for paragraph in split_paragraphs(text):
         if VETO_RISK_PATTERN.search(paragraph) and has_positive_action(paragraph):
             failures.append("风险否决项附近出现正向操作建议；高位放量长阴、断板退潮、低位一日反弹等只能写观察/回避/等修复")
@@ -187,8 +358,12 @@ def check_article(text: str) -> tuple[list[str], list[str]]:
 
 def main() -> int:
     args = parse_args()
-    text = args.article.read_text(encoding="utf-8")
-    failures, warnings = check_article(text)
+    text = args.article.read_text(encoding="utf-8").lstrip("\ufeff")
+    failures, warnings = check_article(
+        text,
+        verify_stock_names=not args.skip_stock_name_check,
+        allow_unverified_stock_names=args.allow_unverified_stock_names,
+    )
 
     print("== 发稿前检查 ==")
     if failures:

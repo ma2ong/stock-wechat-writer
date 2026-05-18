@@ -28,12 +28,15 @@
 
 | 数据源 | 用途 | 工具 |
 |--------|------|------|
+| 东方财富快照 | 指数、个股涨跌幅、成交额、换手率、资金流模型 | `fetch_eastmoney_snapshot.py` |
 | akshare | 指数、成交额、板块排行、宽度 | Python |
 | opencli xueqiu / cailian | 雪球热议、财联社要闻 | CLI |
 | alphaear skill | DeepEar 高置信度信号 | Skill |
 | yfinance | 港股 / 美股 / ADR | Python |
 
 关键数字至少两种来源交叉确认，"板块涨幅榜第一 ≠ 真正主线"。
+
+正文里出现 `公司名（代码）` 时，发稿前检查会做代码-名称校验。未能校验的代码默认不通过，避免把 `大普微（688469）` 这类错配写进正文。
 
 ### 2. 唯一主判断
 
@@ -245,6 +248,7 @@ stock-wechat-writer/
 │   └── cover-design.md               # 封面设计规范（HTML模板+配色）
 └── scripts/
     ├── pre_publish_check.py          # 发稿前自动检查脚本
+    ├── fetch_eastmoney_snapshot.py   # 东方财富指数/个股快照采集
     ├── generate_fact_card.py         # 事实卡片生成辅助
     ├── judgement_ledger.py           # 历史判断记录与复盘校准
     └── sample_fact_input.json        # 示例输入
