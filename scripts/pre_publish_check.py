@@ -56,7 +56,22 @@ WEAK_SOURCE_PATTERNS = [
 SOURCE_HINT_PATTERN = re.compile(r"(来源|数据来源|财联社|证券时报|证券之星|格隆汇|东方财富|同花顺|Wind|万得|akshare|雪球)")
 
 INTERNAL_PROCESS_PATTERNS = [
-    re.compile(r"(用户|你跟我说|你要求|我之前写错|刚才那版|以后复盘|写作规则|skill|提示词)"),
+    re.compile(
+        r"(用户|你跟我说|你要求|你说得对|我之前写错|刚才那版|上一版|这版|重写|"
+        r"漏掉|截图|画框|以后复盘|写作规则|skill|提示词|问财数据显示|"
+        r"我会|我现在|按你说|你提醒)"
+    ),
+]
+
+REPETITIVE_RECAP_PHRASES = [
+    "今天真正重要",
+    "这才是今天复盘最重要",
+    "今天最重要的信号",
+    "真正的主线",
+    "明天看什么？",
+    "看两件事就够",
+    "看三件事",
+    "不要把市场看窄了",
 ]
 
 FIXED_SECTION_TITLES = [
@@ -67,6 +82,32 @@ FIXED_SECTION_TITLES = [
     "明天看什么",
     "最后一句话",
 ]
+
+PUBLIC_ARTICLE_LEAK_PATTERNS = [
+    re.compile(pattern)
+    for pattern in [
+        r"\u4f60\u7ed9\u6211\u7684\u622a\u56fe",
+        r"\u4f60\u53d1\u7684\u622a\u56fe",
+        r"\u622a\u56fe\u91cc",
+        r"\u622a\u56fe\u663e\u793a",
+        r"\u4e1c\u65b9\u8d22\u5bcc\u622a\u56fe",
+        r"\u677f\u5757\u56fe",
+        r"\u753b\u6846",
+        r"\u4e0a\u4e00\u7248",
+        r"\u521a\u624d\u90a3\u7248",
+        r"\u6211\u524d\u9762\u5199\u9519",
+        r"\u6211\u4e4b\u524d\u5199\u9519",
+        r"\u6839\u636e\u4f60\u7684\u8981\u6c42",
+        r"\u4f60\u63d0\u9192",
+        r"\u95ee\u8d22\u6570\u636e\u663e\u793a",
+    ]
+]
+
+SECTOR_NAME_PATTERN = re.compile(
+    r"(\u7535\u529b|\u534a\u5bfc\u4f53|IT\u670d\u52a1|\u516c\u7528\u4e8b\u4e1a|\u8f6f\u4ef6\u5f00\u53d1|\u5143\u4ef6|"
+    r"MLCC|MLOps|Kimi|\u56fd\u8d44\u4e91|\u534e\u4e3a|\u6db2\u51b7|\u5b58\u50a8|CPO|PCB|\u5149\u901a\u4fe1|"
+    r"\u82af\u7247|\u7b97\u529b|\u7535\u7f51|\u5316\u5de5|\u6c34\u6ce5|\u5730\u4ea7)"
+)
 
 ACTION_PATTERN = re.compile(r"(低吸|试错|关注|推荐|可做|加仓|买入|参与)")
 ACTION_POSITIVE_PATTERN = re.compile(
@@ -298,9 +339,29 @@ def check_article(
         if pattern.search(text):
             warnings.append(f"检测到固定句式风险：{label}")
 
+    repetitive_hits = [phrase for phrase in REPETITIVE_RECAP_PHRASES if phrase in text]
+    if len(repetitive_hits) >= 2:
+        warnings.append(f"检测到复盘套话重复：{', '.join(repetitive_hits[:4])}")
+
     for pattern in INTERNAL_PROCESS_PATTERNS:
         if pattern.search(text):
             failures.append("正文包含内部指令/纠错过程痕迹；公众号文章只能面向读者")
+
+    for pattern in PUBLIC_ARTICLE_LEAK_PATTERNS:
+        if pattern.search(text):
+            failures.append("正文包含给用户的过程话或截图来源表述；公众号文章只写给读者")
+            break
+
+    first_screen_sector_count = len(set(SECTOR_NAME_PATTERN.findall(text[:800])))
+    if first_screen_sector_count >= 8:
+        warnings.append("开头板块名称过密，可能在照搬涨幅榜；先压缩成一个核心矛盾再写")
+
+    for paragraph in split_paragraphs(text):
+        sector_count = len(set(SECTOR_NAME_PATTERN.findall(paragraph)))
+        pct_count = len(re.findall(r"\d+(?:\.\d+)?%", paragraph))
+        if sector_count >= 6 and pct_count >= 4:
+            warnings.append("检测到单段罗列多个上涨板块和涨幅；复盘不要把涨幅榜当文章目录")
+            break
 
     fixed_hits = [title for title in FIXED_SECTION_TITLES if re.search(rf"^##\s*{re.escape(title)}", text, re.M)]
     if len(fixed_hits) >= 4:

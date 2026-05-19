@@ -16,6 +16,7 @@
 写盘后总结 / 收评 / 明日展望
 做一篇公众号股票复盘（含封面图）
 补封面并发到草稿箱
+把复盘生成小红书 / 小绿书 / 即刻 / X 精美卡片
 ```
 
 ---
@@ -28,8 +29,13 @@
 
 | 数据源 | 用途 | 工具 |
 |--------|------|------|
+| 数据源探测 | 检查当前环境可用的采集工具 | `check_data_sources.py` |
 | 东方财富快照 | 指数、个股涨跌幅、成交额、换手率、资金流模型 | `fetch_eastmoney_snapshot.py` |
 | akshare | 指数、成交额、板块排行、宽度 | Python |
+| mootdx + 腾讯 | 日线、分时、实时行情、F10增强 | 可选依赖 / MCP / 网页 |
+| 东方财富 + i问财 | 研报、条件筛选、概念归属、候选池 | 东方财富 / 同花顺 / pywencai |
+| 百度PAE + 同花顺 | 热点题材、舆情热度、涨停梯队 | opencli / MCP / 网页 |
+| 巨潮资讯网 | 上市公司公告全文 | MCP / 网页 / 官方源 |
 | opencli xueqiu / cailian | 雪球热议、财联社要闻 | CLI |
 | alphaear skill | DeepEar 高置信度信号 | Skill |
 | yfinance | 港股 / 美股 / ADR | Python |
@@ -228,6 +234,27 @@ python scripts/judgement_ledger.py add \
 python scripts/judgement_ledger.py due --as-of 2026-05-22
 ```
 
+### 10. 多平台卡片分发
+
+已接入 `VoxFlowStudio/skills` 的 `card` skill 作为复盘后的分发增强。
+
+适用：
+
+- 小红书 / 小绿书图文卡片
+- 即刻观点卡
+- X / Twitter 数据卡
+- 金句卡、观点卡、复盘摘要卡
+
+原则：
+
+- 卡片生成必须发生在复盘正文通过 `pre_publish_check.py` 之后。
+- 卡片只消费已核验文章和事实卡片，不重新发明数据。
+- `card` skill 走 HTML/CSS + Playwright 导出 PNG，适合财经内容，因为数字和股票代码更可控。
+- 默认跳过 VoxFlow CLI 和 `voxflow login`，采用本地离线模式：opencli 做平台调研/发布辅助，本地 HTML/CSS + Playwright 导出 PNG。
+- 只有用户明确要使用 VoxFlow 云端模板或视频能力时，才需要登录 VoxFlow。
+
+详细规则见 `references/social-card-workflow.md`。
+
 ---
 
 ## 文件结构
@@ -243,11 +270,13 @@ stock-wechat-writer/
 │   ├── risk-veto-rules.md            # 风险否决规则
 │   ├── trading-strategy-playbook.md  # 策略战法判断模块
 │   ├── recap-writing-playbook.md     # 写作手册（开头/主线/明日/CTA）
+│   ├── social-card-workflow.md       # 小红书/即刻/X 卡片分发流程
 │   ├── writing_template.md           # 文章模板 + 发稿前自查
 │   ├── ai-antipatterns.md            # 财经专项 AI 味消除（禁用词+替换）
 │   └── cover-design.md               # 封面设计规范（HTML模板+配色）
 └── scripts/
     ├── pre_publish_check.py          # 发稿前自动检查脚本
+    ├── check_data_sources.py         # 数据源可用性探测
     ├── fetch_eastmoney_snapshot.py   # 东方财富指数/个股快照采集
     ├── generate_fact_card.py         # 事实卡片生成辅助
     ├── judgement_ledger.py           # 历史判断记录与复盘校准

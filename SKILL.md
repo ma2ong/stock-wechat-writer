@@ -5,6 +5,19 @@ description: 一键生成A股行情分析微信公众号文章。融合DeepEar�
 
 # Stock WeChat Writer
 
+## Recent hard lessons
+
+Before every recap, read `references/recap-quality-lessons.md` and apply it as a hard rule.
+
+Most important current rules:
+
+- Scan the whole market first. Do not keep writing the same fixed sectors just because they were strong recently.
+- A screenshot, tool output, or user correction is internal context only. Never write it into the public article.
+- Do not list every rising sector. Select only the few directions that explain the day's core contradiction.
+- Match the article structure to the market type. Do not reuse the same daily format.
+- Treat post-climax low-position diffusion as a harder trading phase, not as automatic new opportunities.
+- A direction or stock cannot enter a recommendation/watch pool without horizontal, vertical, sentiment, capital, and chart evidence.
+
 这个 skill 的目标：把当天盘面事实核实清楚，写出一篇有自己判断、中国公众号读者愿意看完并转发的复盘文章。
 
 不是拼数据流水账，是写一个有立场的人对今天市场的理解。
@@ -18,6 +31,7 @@ description: 一键生成A股行情分析微信公众号文章。融合DeepEar�
 - 写盘后总结 / 收评 / 明日展望
 - 做一篇公众号股票复盘（含封面图）
 - 补封面并发到草稿箱
+- 把复盘文章生成小红书 / 小绿书 / 即刻 / X 精美卡片
 
 ---
 
@@ -29,7 +43,7 @@ description: 一键生成A股行情分析微信公众号文章。融合DeepEar�
 |------|------|
 | 市场 | A股 / 港股 / 美股 |
 | 时点 | 盘中 / 收盘后 / 次日早盘前 |
-| 产物 | 正文 / HTML / 封面 / 草稿箱推送 |
+| 产物 | 正文 / HTML / 封面 / 草稿箱推送 / 多平台卡片 |
 | 日期 | 必须明确到自然日，不写"今天" |
 
 ---
@@ -43,12 +57,35 @@ description: 一键生成A股行情分析微信公众号文章。融合DeepEar�
 先使用当前环境能直接调用的工具，不要只靠模型记忆或二手总结。
 
 优先级：
-1. 本地脚本 / `daily_stock_analysis` / 已有行情采集脚本，例如 `scripts/fetch_eastmoney_snapshot.py`。
+1. 本地脚本 / `daily_stock_analysis` / 已有行情采集脚本，例如 `scripts/check_data_sources.py`、`scripts/fetch_eastmoney_snapshot.py`。
 2. MCP / 浏览器 / 官方网页，用于交易所公告、公司公告、东方财富、同花顺、Wind/万得页面核对。
 3. `opencli`，用于财联社、雪球、微博、东方财富/同花顺相关搜索。
 4. Web 搜索作为 fallback，优先交易所、公司公告、东方财富、同花顺、证券时报、财联社、Wind/万得口径。
 
 所有 LLM 输出只当线索，不当事实来源。
+
+先探测当前环境可用的数据源：
+
+```bash
+python scripts/check_data_sources.py
+```
+
+信息源按数据层使用：
+
+| 数据层 | 内容 | 可用来源 |
+|---|---|---|
+| 行情 | 日线、分时线、实时行情 | akshare、东方财富快照、mootdx、腾讯行情、同花顺/Wind |
+| 研报 | 券商研报、行业分析 | 东方财富研报、i问财/同花顺、Wind/万得、券商官网 |
+| 信号 | 热点题材、北向资金、龙虎榜、解禁、行业轮动 | 东方财富、同花顺、Wind、百度PAE/搜索、opencli |
+| 新闻 | 财经新闻、公告摘要 | 财联社、证券时报、akshare 新闻、东方财富、同花顺 |
+| 基础数据 | 财务数据、F10资料 | 东方财富F10、同花顺F10、Wind、mootdx F10 |
+| 公告 | 上市公司公告全文 | 巨潮资讯网、交易所、公司公告 |
+
+使用边界：
+- 行情源负责价格、涨跌幅、成交额，不解释原因。
+- 舆情源负责线索和热度，不直接成为买点。
+- 研报源负责产业逻辑，不替代当日盘面。
+- 公告源负责事实原文，重大公告必须看全文或官方摘要。
 
 ### 2a. 行情硬数据（akshare）
 
@@ -63,6 +100,10 @@ df_sector = ak.stock_board_industry_summary_ths()
 ```
 
 关键字段：指数收盘点位、涨跌幅、两市成交额、上涨/下跌家数、板块涨跌排行。
+
+可选增强：
+- `mootdx + 腾讯`：补充日线、分时、实时行情、F10。若当前环境没有 `mootdx`，改用 akshare、东方财富快照或 MCP/网页。
+- 腾讯行情只用于价格快照交叉验证，不能写成资金、机构或龙虎榜证据。
 
 ### 2b. 代码、简称、资金口径硬校验
 
@@ -98,6 +139,11 @@ opencli web search "东方财富 今日A股 收评 主线" --limit 10
 opencli web search "同花顺 今日涨停梯队 龙虎榜" --limit 10
 opencli web search "Wind 今日A股 行业涨跌 资金流" --limit 10
 ```
+
+可选增强：
+- `i问财 / iwencai / pywencai`：用于条件筛选候选池，例如“今日涨停 + 存储芯片 + 成交额前排”。筛出来的个股必须再核对代码、成交额、概念归属。
+- `百度PAE / 百度搜索 + 同花顺`：用于热点题材、舆情热度和概念解释。舆情热但盘面没有放量响应，只能写“舆情热，不是交易主线”。
+- `巨潮资讯网 / 交易所公告`：用于公告全文、业绩、减持、并购、问询函、重大合同核对。公告摘要不能替代全文。
 
 ### 2c0. 东方财富快照（本地脚本）
 
@@ -154,11 +200,14 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 - 新闻催化：（来源：）
 - 资金解释：（来源：）
 - 海外映射：
+- 研报/产业逻辑：（来源：东方财富研报 / i问财 / Wind / 券商官网）
+- 公告原文：（来源：巨潮资讯网 / 交易所 / 公司公告）
 
 个股硬校验：
 - 公司名-代码：（已核对 / 未核对）
 - 资金口径：（东方财富 / 同花顺 / Wind / 龙虎榜 / 交易所 / 无）
 - 是否存在同名、近名、代码误配风险：
+- 候选池来源：（i问财 / 东方财富 / 同花顺 / Wind / 无）
 
 情绪与价格：
 - 今日最重要消息：（来源：）
@@ -304,6 +353,15 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 **结构不固定，先看当天盘面，再决定写法。**
 
 今天是普涨、普跌、主线切换、强趋势分歧、情绪退潮、指数护盘、消息兑现，文章结构都应该不同。不能每天机械写成“指数 → 板块 → 个股 → 明天看什么”的固定模板。
+
+**公众号读者视角硬规则：**
+
+- 正文只能写给公众号读者看，不能出现内部协作痕迹。严禁写“上一版漏掉”“你说得对”“我之前写错”“按你要求”“截图里”“画框内容”“问财数据显示”这类工作过程语言。
+- 数据来源可以放在文末“数据来源”里，正文中不要反复暴露“我从哪里抓的”。正文要呈现结论和证据，不呈现采集过程。
+- 每天开头必须换叙事入口，入口由当天盘面决定。可以从一张板块图、一个反常个股、成交额背离、监管事件、龙虎榜、海外映射、指数背离、亏钱效应、涨停梯队、消息兑现中选择，不要连续两天用同一种开头。
+- 不要连续使用“今天真正重要的是”“真正的主线”“明天看什么”“这才是今天复盘最重要的地方”“不要把市场看窄了”等固定句式。能不用就不用，必须用时一篇最多出现一个。
+- 如果当天盘面是多分支扩散，文章结构可以写成“盘面证据 → 产业链地图 → 强弱分层 → 次日验证”；如果是单核心矛盾，可以只围绕一个矛盾写短文；如果是退潮日，优先写亏钱效应和回避条件。
+- 不要为了覆盖而把每个强势板块都列一遍。先横向扫描全市场，再选最能解释当天盘面的 2-4 个核心分支；其余只在“降级观察/轮动”里一笔带过。
 
 可选结构示例：
 
@@ -594,6 +652,48 @@ python scripts/judgement_ledger.py review \
 - 触发买点后没有延续：检查是否忽略了情绪或板块共振。
 
 历史账本默认写入 `output/stock_review_judgements.jsonl`。
+
+---
+
+## Step 11：多平台卡片分发（可选）
+
+当用户要求“小红书 / 小绿书 / 即刻 / X 卡片 / 精美卡片 / 图文卡片”时，使用已安装的 `card` skill 作为分发增强。
+
+执行位置必须在正文定稿之后：
+
+```text
+复盘 Markdown
+→ pre_publish_check.py 通过
+→ 公众号 HTML / 草稿箱
+→ card skill 生成多平台 PNG 卡片
+```
+
+硬规则：
+
+- 卡片只消费已经核验过的复盘正文和事实卡片，不重新发明事实。
+- 卡片中新增的任何数字、股票代码、龙虎榜、资金口径，都必须回到 Step 2 重新核对。
+- 默认走本地离线模式：`opencli` 负责平台调研/发布辅助，本地 HTML/CSS + Playwright 负责导出 PNG。
+- 不要求 `voxflow status` 或 `voxflow login`。VoxFlow CLI 只作为云端模板/视频能力的可选增强。
+- 发布类 opencli 命令属于写操作，必须在用户明确要求后执行；默认只生成本地 PNG。
+- 生成卡片前读取 `references/social-card-workflow.md`。
+
+默认平台方案：
+
+| 平台 | 比例 | 张数 | 风格 |
+|---|---|---:|---|
+| 小红书 / 小绿书 | `3:4` 或 `4:5` | 5 | `social-notebook` / `magazine-eink` |
+| 即刻 | `1:1` | 1-3 | `quiet-report` / `bold-editorial` |
+| X / Twitter | `1:1` 或 `16:9` | 1-3 | `newsroom-paper` / `data-poster` |
+
+财经复盘默认结构：
+
+```text
+1. 今日结论
+2. 指数与情绪
+3. 主线拆解
+4. 个股样本
+5. 明天计划
+```
 
 ---
 

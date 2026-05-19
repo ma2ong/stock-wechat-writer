@@ -44,11 +44,15 @@
   "source_check": {
     "market_data": "待补充，例如：东方财富快照 / akshare / Wind",
     "news": "待补充，例如：财联社 / 证券时报 / 公司公告",
-    "flow_or_lhb": "待补充，例如：东方财富资金流模型 / 同花顺龙虎榜 / Wind"
+    "flow_or_lhb": "待补充，例如：东方财富资金流模型 / 同花顺龙虎榜 / Wind",
+    "research": "待补充，例如：东方财富研报 / i问财 / Wind / 券商官网",
+    "announcement": "待补充，例如：巨潮资讯网 / 交易所 / 公司公告",
+    "sentiment": "待补充，例如：百度PAE/搜索 / 雪球 / 微博 / 同花顺热榜"
   },
   "stock_verification": {
     "name_code": "待补充，例如：兆易创新（603986）已核对；大普微-UW（301666）已核对",
     "ambiguity_risk": "待补充，例如：带-U/-UW后缀股票已写全",
+    "candidate_source": "待补充，例如：i问财条件筛选 / 东方财富板块 / 同花顺概念",
     "unverified": "无"
   },
   "leaders": {

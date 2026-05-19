@@ -47,6 +47,19 @@ class PrePublishCheckTest(unittest.TestCase):
         self.assertFalse(any("未能从东方财富/本地缓存校验股票代码" in item for item in failures))
         self.assertTrue(any("未能从东方财富/本地缓存校验股票代码" in item for item in warnings))
 
+    def test_public_article_leak_fails(self) -> None:
+        text = BASE_ARTICLE + "\n你给我的截图里，东方财富截图显示这个板块最强。\n"
+        failures, _ = pre_publish_check.check_article(text, verify_stock_names=False)
+        self.assertTrue(any("过程话或截图来源表述" in item for item in failures))
+
+    def test_sector_scoreboard_list_warns(self) -> None:
+        text = BASE_ARTICLE + (
+            "\n电力涨3.43%，半导体涨2.96%，IT服务涨2.79%，公用事业涨2.78%，"
+            "软件开发涨2.34%，元件涨2.18%，MLCC涨6.21%，MLOps涨3.88%。\n"
+        )
+        _, warnings = pre_publish_check.check_article(text, verify_stock_names=False)
+        self.assertTrue(any("涨幅榜当文章目录" in item for item in warnings))
+
 
 if __name__ == "__main__":
     unittest.main()
