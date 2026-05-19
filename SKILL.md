@@ -31,7 +31,6 @@ Most important current rules:
 - 写盘后总结 / 收评 / 明日展望
 - 做一篇公众号股票复盘（含封面图）
 - 补封面并发到草稿箱
-- 把复盘文章生成小红书 / 小绿书 / 即刻 / X 精美卡片
 
 ---
 
@@ -43,7 +42,7 @@ Most important current rules:
 |------|------|
 | 市场 | A股 / 港股 / 美股 |
 | 时点 | 盘中 / 收盘后 / 次日早盘前 |
-| 产物 | 正文 / HTML / 封面 / 草稿箱推送 / 多平台卡片 |
+| 产物 | 正文 / HTML / 封面 / 草稿箱推送 |
 | 日期 | 必须明确到自然日，不写"今天" |
 
 ---
@@ -652,48 +651,6 @@ python scripts/judgement_ledger.py review \
 - 触发买点后没有延续：检查是否忽略了情绪或板块共振。
 
 历史账本默认写入 `output/stock_review_judgements.jsonl`。
-
----
-
-## Step 11：多平台卡片分发（可选）
-
-当用户要求“小红书 / 小绿书 / 即刻 / X 卡片 / 精美卡片 / 图文卡片”时，使用已安装的 `card` skill 作为分发增强。
-
-执行位置必须在正文定稿之后：
-
-```text
-复盘 Markdown
-→ pre_publish_check.py 通过
-→ 公众号 HTML / 草稿箱
-→ card skill 生成多平台 PNG 卡片
-```
-
-硬规则：
-
-- 卡片只消费已经核验过的复盘正文和事实卡片，不重新发明事实。
-- 卡片中新增的任何数字、股票代码、龙虎榜、资金口径，都必须回到 Step 2 重新核对。
-- 默认走本地离线模式：`opencli` 负责平台调研/发布辅助，本地 HTML/CSS + Playwright 负责导出 PNG。
-- 不要求 `voxflow status` 或 `voxflow login`。VoxFlow CLI 只作为云端模板/视频能力的可选增强。
-- 发布类 opencli 命令属于写操作，必须在用户明确要求后执行；默认只生成本地 PNG。
-- 生成卡片前读取 `references/social-card-workflow.md`。
-
-默认平台方案：
-
-| 平台 | 比例 | 张数 | 风格 |
-|---|---|---:|---|
-| 小红书 / 小绿书 | `3:4` 或 `4:5` | 5 | `social-notebook` / `magazine-eink` |
-| 即刻 | `1:1` | 1-3 | `quiet-report` / `bold-editorial` |
-| X / Twitter | `1:1` 或 `16:9` | 1-3 | `newsroom-paper` / `data-poster` |
-
-财经复盘默认结构：
-
-```text
-1. 今日结论
-2. 指数与情绪
-3. 主线拆解
-4. 个股样本
-5. 明天计划
-```
 
 ---
 
