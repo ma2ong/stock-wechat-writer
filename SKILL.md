@@ -17,6 +17,7 @@ Most important current rules:
 - Match the article structure to the market type. Do not reuse the same daily format.
 - Treat post-climax low-position diffusion as a harder trading phase, not as automatic new opportunities.
 - A direction or stock cannot enter a recommendation/watch pool without horizontal, vertical, sentiment, capital, and chart evidence.
+- Before writing, review recent recap judgements. Mention yesterday/weekly validation only when it genuinely changes today's interpretation or trading plan.
 
 这个 skill 的目标：把当天盘面事实核实清楚，写出一篇有自己判断、中国公众号读者愿意看完并转发的复盘文章。
 
@@ -244,6 +245,7 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 判断卡必须写清楚：
 
 - 市场类型：强趋势分歧 / 主线切换 / 情绪退潮 / 指数护盘 / 消息兑现 / 普涨高潮 / 缩量震荡。
+- 历史校准：昨天、前天、近一周的核心判断是否被今天验证或推翻。
 - 核心矛盾：今天最值得写的一件事。
 - 主线筛选：候选方向里谁是真主线、谁只是反弹或跟风。
 - 关注标的判断：若出现操作词，必须给出趋势、龙头、资金、情绪、横向、纵向六维证据。
@@ -361,6 +363,8 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 - 不要连续使用“今天真正重要的是”“真正的主线”“明天看什么”“这才是今天复盘最重要的地方”“不要把市场看窄了”等固定句式。能不用就不用，必须用时一篇最多出现一个。
 - 如果当天盘面是多分支扩散，文章结构可以写成“盘面证据 → 产业链地图 → 强弱分层 → 次日验证”；如果是单核心矛盾，可以只围绕一个矛盾写短文；如果是退潮日，优先写亏钱效应和回避条件。
 - 不要为了覆盖而把每个强势板块都列一遍。先横向扫描全市场，再选最能解释当天盘面的 2-4 个核心分支；其余只在“降级观察/轮动”里一笔带过。
+- 可以引用昨天、前天或近一周文章里的判断，但必须自然服务今天的盘面。只有当历史判断被验证、被修正、或直接影响今天交易计划时才写进正文；不要为了证明自己正确而硬写。
+- 历史回看写法要像连续跟盘的人复盘，例如“昨天说的低位扩散，今天继续验证，但持续性依然不够”，不要写成“我昨天预判正确”“按昨天文章模板继续看”这种自我表扬或内部过程。
 
 可选结构示例：
 
@@ -614,7 +618,21 @@ python push_stock_review_draft.py \
 
 ## Step 10：历史判断记录与复盘校准
 
-每篇复盘定稿后，建议把核心判断写入历史账本，便于 3/5/10 个交易日后复盘。使用 `scripts/judgement_ledger.py`：
+每天写新文章前，先回看最近 1-5 篇复盘和历史判断账本，判断昨天、前天或近一周的预判是否被今天验证、修正或推翻。这个步骤必须做，但不一定写进正文。
+
+写进正文的门槛：
+
+- 今天盘面直接验证了之前的主线判断、风险提示或等待条件。
+- 之前提到的核心股/板块出现了明显强化、破位、修复或失效。
+- 这段历史回看能帮助读者理解今天怎么操作，而不是展示作者“说对了”。
+
+不写进正文的情况：
+
+- 历史判断和今天盘面关系不大。
+- 只能写成自我表扬，没有新增交易价值。
+- 会让文章显得像内部复盘流程，而不是公众号文章。
+
+每篇复盘定稿后，把核心判断写入历史账本，便于 1/3/5/10 个交易日后复盘。使用 `scripts/judgement_ledger.py`：
 
 ```bash
 python scripts/judgement_ledger.py add \
