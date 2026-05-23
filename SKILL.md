@@ -18,6 +18,8 @@ Most important current rules:
 - Treat post-climax low-position diffusion as a harder trading phase, not as automatic new opportunities.
 - A direction or stock cannot enter a recommendation/watch pool without horizontal, vertical, sentiment, capital, and chart evidence.
 - Before writing, review recent recap judgements. Mention yesterday/weekly validation only when it genuinely changes today's interpretation or trading plan.
+- Do not write public articles as inner monologue. If a previous judgement was wrong, translate it into market-facing language: what changed, why it changed, and what readers should do next.
+- Do not end every article with generic "watch acceptance/承接" language. The ending must give a clear next-session bias and action plan: hold, reduce, wait, avoid, or only buy after a specific trigger.
 
 这个 skill 的目标：把当天盘面事实核实清楚，写出一篇有自己判断、中国公众号读者愿意看完并转发的复盘文章。
 
@@ -358,6 +360,7 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 **公众号读者视角硬规则：**
 
 - 正文只能写给公众号读者看，不能出现内部协作痕迹。严禁写“上一版漏掉”“你说得对”“我之前写错”“按你要求”“截图里”“画框内容”“问财数据显示”这类工作过程语言。
+- 正文不能写成作者心理活动或内部检讨。不要写“昨天我把风险权重打得太高”“当时的判断是”“所以今天结论要改”“打脸本身不重要”这类自我对话。历史判断被修正时，直接写成市场结论：昨天的退潮判断被今天盘面修正，修正原因是什么，读者下一步怎么处理。
 - 数据来源可以放在文末“数据来源”里，正文中不要反复暴露“我从哪里抓的”。正文要呈现结论和证据，不呈现采集过程。
 - 每天开头必须换叙事入口，入口由当天盘面决定。可以从一张板块图、一个反常个股、成交额背离、监管事件、龙虎榜、海外映射、指数背离、亏钱效应、涨停梯队、消息兑现中选择，不要连续两天用同一种开头。
 - 不要连续使用“今天真正重要的是”“真正的主线”“明天看什么”“这才是今天复盘最重要的地方”“不要把市场看窄了”等固定句式。能不用就不用，必须用时一篇最多出现一个。
@@ -378,11 +381,13 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 
 **写作要求：**
 - 开头第一段就给结论，不写"今天市场..."这类导语
+- 开头必须像发给公众号读者的判断，不像作者对自己说话。可以承认判断修正，但第一屏要先给市场结论，不写自我检讨。
 - 每段只表达一个意思
 - 板块、个股、成交额都服务于核心判断，不单独列数据
 - 有自己的立场，不只描述发生了什么
 - 每篇正文最多围绕 2-4 个关键方向展开；无关方向不凑数
 - 文章风格跟随盘面：高潮日可以紧张，分歧日要谨慎，普涨日要拆真假，退潮日要直接提示风险
+- 结尾必须给明确的次日偏向和动作建议，不能只写“明天看承接/看三件事”。至少回答三件事：明天偏强还是偏弱；有仓是拿、减还是卖；没仓是追、等分歧还是回避。
 - 参考历史好稿的判断方式，不复制固定结构和固定措辞
 - 可以把 `0514 强趋势还在，但跟风票开始掉队` 当参考例子，但只学它的优点：结论直接、少废话、围绕强趋势、用条件句给交易计划。不要照搬它的格式：不固定“CPO/算电/存储/芯片”，不固定四段结构，不固定“明天怎么做”模板。
 - 每天先判断盘面类型：强趋势分歧、主线切换、情绪退潮、指数护盘、消息兑现、缩量震荡，然后按当天盘面重组文章。
@@ -444,6 +449,7 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 - [ ] 有读者视角——"如果你持有科技线..."或"对于做短线的来说..."
 - [ ] 有反直觉角度——不是在重复今天财联社/雪球都说过的
 - [ ] 读起来像一个今天真的跟盘的人在说话，不像数据播报员
+- [ ] 开头和结尾不像 AI 自我复盘：没有心理独白、内部纠错、固定“看承接”套路
 
 ---
 
@@ -461,14 +467,14 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 | **D6 关注转化** | 有系列感或人设差异，让读者有理由关注账号 | 和其他财经号没有区别 |
 | **D7 裂变单元** | 有一句话/一个判断可以单独截图转发 | 全文没有能独立存在的金句 |
 
-**D5 互动引导写法**（结尾必须加，在风险提示之前）：
+**D5 互动引导写法**（可加，但不能替代交易结论）：
 
 ```
 你觉得[今天最强的板块/明天的分歧]，还能走多久？
 留言聊聊，你今天拿的是哪个方向。
 ```
 
-不要用是非题（"你觉得明天会涨吗？"），用开放性问题（"你今天重仓的是什么方向？"）——开放性问题的评论率高3-5倍。
+不要用是非题（"你觉得明天会涨吗？"），用开放性问题（"你今天重仓的是什么方向？"）。但互动引导不能每天固定出现，也不能放在操作结论前面。先讲清明天怎么做，再决定是否加一句互动。
 
 ---
 
@@ -680,5 +686,5 @@ python scripts/judgement_ledger.py review \
 - 不写"情绪明显修复"，写涨停家数或量能变化
 - 不把复盘写成"指数+板块+个股"三段式流水账
 - 不把涨幅榜第一当成主线
-- 不写"后续值得关注"，写明天具体看什么
+- 不写"后续值得关注"，也不每天写"明天看承接"。要写明天大概率偏强/偏弱/震荡，以及读者该拿、减、等还是回避
 - 不推荐股票，除非用户明确要"关注标的"

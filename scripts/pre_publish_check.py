@@ -63,6 +63,18 @@ INTERNAL_PROCESS_PATTERNS = [
     ),
 ]
 
+SELF_DIALOGUE_PATTERNS = [
+    re.compile(pattern)
+    for pattern in [
+        r"昨天我把.{0,20}(权重|判断|风险)",
+        r"当时的判断是",
+        r"所以今天的结论要改",
+        r"打脸本身并不重要",
+        r"我的判断直接一点",
+        r"这个逻辑长期看没有问题",
+    ]
+]
+
 REPETITIVE_RECAP_PHRASES = [
     "今天真正重要",
     "这才是今天复盘最重要",
@@ -71,6 +83,9 @@ REPETITIVE_RECAP_PHRASES = [
     "明天看什么？",
     "看两件事就够",
     "看三件事",
+    "明天看承接",
+    "继续有承接",
+    "能不能继续承接",
     "不要把市场看窄了",
 ]
 
@@ -350,6 +365,11 @@ def check_article(
     for pattern in PUBLIC_ARTICLE_LEAK_PATTERNS:
         if pattern.search(text):
             failures.append("正文包含给用户的过程话或截图来源表述；公众号文章只写给读者")
+            break
+
+    for pattern in SELF_DIALOGUE_PATTERNS:
+        if pattern.search(text):
+            failures.append("正文包含作者心理对话/内部检讨口吻；公众号文章要直接写市场结论和读者动作")
             break
 
     first_screen_sector_count = len(set(SECTOR_NAME_PATTERN.findall(text[:800])))
