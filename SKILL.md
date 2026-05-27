@@ -20,6 +20,9 @@ Most important current rules:
 - Before writing, review recent recap judgements. Mention yesterday/weekly validation only when it genuinely changes today's interpretation or trading plan.
 - Do not write public articles as inner monologue. If a previous judgement was wrong, translate it into market-facing language: what changed, why it changed, and what readers should do next.
 - Do not end every article with generic "watch acceptance/承接" language. The ending must give a clear next-session bias and action plan: hold, reduce, wait, avoid, or only buy after a specific trigger.
+- Major catalysts must not be missed. If an official or high-impact market event drove yesterday's emotion, today's recap must judge whether that emotion continued, weakened, or was falsified.
+- Keep the public article concise. Write the one core contradiction, only the evidence needed to prove it, and delete repeated explanation, broad education, and sector laundry lists.
+- Rule updates must be delivered end to end. When the user asks to summarize lessons or update local rule files, update both the active local skill and this repository, then commit and push to GitHub unless the user explicitly says local-only.
 
 这个 skill 的目标：把当天盘面事实核实清楚，写出一篇有自己判断、中国公众号读者愿意看完并转发的复盘文章。
 
@@ -240,6 +243,15 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 
 尤其注意：未来事件（如“明天会见”“即将签约”“据传大单”）必须等盘面验证。没有价格和成交额响应时，只能写“市场在等待验证”，不能写成今天行情的主因。
 
+重大催化不得漏写。只要前一交易日或当天有官方发布、产业级事件、重磅业绩、IPO/审核进展、政策、海外映射等高影响消息，并且已经影响过盘面情绪，判断卡必须回答：
+
+- 这个催化昨天/今天是否点燃了市场情绪。
+- 今天情绪是否延续、弱化、兑现或被证伪。
+- 资金留下的是哪条直接受益链，淘汰的是哪些泛概念分支。
+- 正文是否需要写入；如果不写，判断卡必须说明为什么它不是今天核心矛盾。
+
+写入正文时，只写“催化对盘面的真实影响”，不要大段科普。合格写法是：消息点火了什么、今天有没有延续、资金最终选择了谁、读者明天怎么处理。
+
 ### 2h. 写作前判断卡（必须执行）
 
 在进入正文前，先按 `references/pre-writing-judgement-card.md` 完成判断卡。判断卡不是正文，不推送给读者，但它决定今天文章怎么写。
@@ -386,6 +398,8 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 - 板块、个股、成交额都服务于核心判断，不单独列数据
 - 有自己的立场，不只描述发生了什么
 - 每篇正文最多围绕 2-4 个关键方向展开；无关方向不凑数
+- 如果一条重大消息是当天最大变量，文章可以只围绕“消息点火后是否延续”这一件事写，不要再凑满多个板块。
+- 正文以精简为默认。没有必要的背景解释、行业科普、重复判断、完整板块清单全部删除；宁可短，也不要啰嗦。
 - 文章风格跟随盘面：高潮日可以紧张，分歧日要谨慎，普涨日要拆真假，退潮日要直接提示风险
 - 结尾必须给明确的次日偏向和动作建议，不能只写“明天看承接/看三件事”。至少回答三件事：明天偏强还是偏弱；有仓是拿、减还是卖；没仓是追、等分歧还是回避。
 - 参考历史好稿的判断方式，不复制固定结构和固定措辞
