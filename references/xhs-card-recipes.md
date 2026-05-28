@@ -2,6 +2,7 @@
 
 Standard 7-page Xiaohongshu carousel for A股 daily recap.
 Invoke from Step 8.5 of the stock-wechat-writer workflow.
+Input data comes from the "事实卡片" produced in Step 2e of the same workflow.
 
 ## Style: Swiss International
 
@@ -110,7 +111,7 @@ Required elements:
 - `.chrome-min`: "明日操作" / "三种情况"
 - `.t-cat`: "操作计划"
 - `.h-xl`: "明日如何做"
-- `.stack.gap-6` with `flex:1`:
+- `.stack.gap-6` with `flex:1` (vertical column, cards stack top-to-bottom):
   - 3 `.card-fill` blocks, each with `flex:1`:
     - `.row.gap-6`: `.t-meta` (accent, "01"/"02"/"03") + `.h-md` (scenario name)
     - `.body` (grey-3): 3-4 sentences of specific, verifiable action
