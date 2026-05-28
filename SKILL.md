@@ -5,6 +5,25 @@ description: 一键生成A股行情分析微信公众号文章。融合DeepEar�
 
 # Stock WeChat Writer
 
+## Recent hard lessons
+
+Before every recap, read `references/recap-quality-lessons.md` and apply it as a hard rule.
+
+Most important current rules:
+
+- Scan the whole market first. Do not keep writing the same fixed sectors just because they were strong recently.
+- A screenshot, tool output, or user correction is internal context only. Never write it into the public article.
+- Do not list every rising sector. Select only the few directions that explain the day's core contradiction.
+- Match the article structure to the market type. Do not reuse the same daily format.
+- Treat post-climax low-position diffusion as a harder trading phase, not as automatic new opportunities.
+- A direction or stock cannot enter a recommendation/watch pool without horizontal, vertical, sentiment, capital, and chart evidence.
+- Before writing, review recent recap judgements. Mention yesterday/weekly validation only when it genuinely changes today's interpretation or trading plan.
+- Do not write public articles as inner monologue. If a previous judgement was wrong, translate it into market-facing language: what changed, why it changed, and what readers should do next.
+- Do not end every article with generic "watch acceptance/承接" language. The ending must give a clear next-session bias and action plan: hold, reduce, wait, avoid, or only buy after a specific trigger.
+- Major catalysts must not be missed. If an official or high-impact market event drove yesterday's emotion, today's recap must judge whether that emotion continued, weakened, or was falsified.
+- Keep the public article concise. Write the one core contradiction, only the evidence needed to prove it, and delete repeated explanation, broad education, and sector laundry lists.
+- Rule updates must be delivered end to end. When the user asks to summarize lessons or update local rule files, update both the active local skill and this repository, then commit and push to GitHub unless the user explicitly says local-only.
+
 这个 skill 的目标：把当天盘面事实核实清楚，写出一篇有自己判断、中国公众号读者愿意看完并转发的复盘文章。
 
 不是拼数据流水账，是写一个有立场的人对今天市场的理解。
@@ -40,6 +59,41 @@ description: 一键生成A股行情分析微信公众号文章。融合DeepEar�
 
 **原则：先核对，再写文章。事实卡片写不清楚，就不进入写作阶段。**
 
+### 2a0. 工具与来源选择
+
+先使用当前环境能直接调用的工具，不要只靠模型记忆或二手总结。
+
+优先级：
+1. 本地脚本 / `daily_stock_analysis` / 已有行情采集脚本，例如 `scripts/check_data_sources.py`、`scripts/fetch_eastmoney_snapshot.py`。
+2. MCP / 浏览器 / 官方网页，用于交易所公告、公司公告、东方财富、同花顺、Wind/万得页面核对。
+3. `opencli`，用于财联社、雪球、微博、东方财富/同花顺相关搜索。
+4. Web 搜索作为 fallback，优先交易所、公司公告、东方财富、同花顺、证券时报、财联社、Wind/万得口径。
+
+所有 LLM 输出只当线索，不当事实来源。
+
+先探测当前环境可用的数据源：
+
+```bash
+python scripts/check_data_sources.py
+```
+
+信息源按数据层使用：
+
+| 数据层 | 内容 | 可用来源 |
+|---|---|---|
+| 行情 | 日线、分时线、实时行情 | akshare、东方财富快照、mootdx、腾讯行情、同花顺/Wind |
+| 研报 | 券商研报、行业分析 | 东方财富研报、i问财/同花顺、Wind/万得、券商官网 |
+| 信号 | 热点题材、北向资金、龙虎榜、解禁、行业轮动 | 东方财富、同花顺、Wind、百度PAE/搜索、opencli |
+| 新闻 | 财经新闻、公告摘要 | 财联社、证券时报、akshare 新闻、东方财富、同花顺 |
+| 基础数据 | 财务数据、F10资料 | 东方财富F10、同花顺F10、Wind、mootdx F10 |
+| 公告 | 上市公司公告全文 | 巨潮资讯网、交易所、公司公告 |
+
+使用边界：
+- 行情源负责价格、涨跌幅、成交额，不解释原因。
+- 舆情源负责线索和热度，不直接成为买点。
+- 研报源负责产业逻辑，不替代当日盘面。
+- 公告源负责事实原文，重大公告必须看全文或官方摘要。
+
 ### 2a. 行情硬数据（akshare）
 
 ```python
@@ -54,7 +108,28 @@ df_sector = ak.stock_board_industry_summary_ths()
 
 关键字段：指数收盘点位、涨跌幅、两市成交额、上涨/下跌家数、板块涨跌排行。
 
-### 2b. 实时财经新闻（opencli）
+可选增强：
+- `mootdx + 腾讯`：补充日线、分时、实时行情、F10。若当前环境没有 `mootdx`，改用 akshare、东方财富快照或 MCP/网页。
+- 腾讯行情只用于价格快照交叉验证，不能写成资金、机构或龙虎榜证据。
+
+### 2b. 代码、简称、资金口径硬校验
+
+正文只要出现 `公司名（股票代码）`，必须先完成代码-名称匹配校验。
+
+```bash
+python scripts/pre_publish_check.py --article output/stock_review_YYYYMMDD.md
+```
+
+检查脚本会调用东方财富实时行情接口校验股票简称。若出现 `大普微（688469）` 这类代码-名称不匹配，直接失败，不允许推送。
+
+规则：
+- 不能校验的代码默认视为未通过。只有已经用同花顺、Wind/万得、交易所手工核对，并在事实卡片里写明来源时，才允许临时使用 `--allow-unverified-stock-names`。
+- 首次出现个股，优先写行情软件简称，尤其是 `-U`、`-UW`、`A`、`B` 等后缀。
+- 股票代码、龙虎榜席位、外资金额、融资余额、主力净流入等数字必须回到东方财富、同花顺、Wind/万得、交易所公告或官方源核对。
+- 东方财富 `主力净流入` 是资金流模型口径，不能写成“外资买入”或“机构确认”。
+- “深股通专用”“机构专用席位”等只能来自龙虎榜/交易所/东方财富/同花顺/Wind，不能凭社媒或 LLM 输出写。
+
+### 2c. 实时财经新闻（opencli）
 
 ```bash
 # 雪球热议
@@ -65,13 +140,36 @@ opencli cailian --category hot --limit 15
 
 # 雪球指数讨论
 opencli xueqiu stock 000001 --comments
+
+# 如果 opencli 支持 web 搜索，补充东方财富/同花顺/Wind 口径
+opencli web search "东方财富 今日A股 收评 主线" --limit 10
+opencli web search "同花顺 今日涨停梯队 龙虎榜" --limit 10
+opencli web search "Wind 今日A股 行业涨跌 资金流" --limit 10
 ```
 
-### 2c. 市场信号（alphaear skill）
+可选增强：
+- `i问财 / iwencai / pywencai`：用于条件筛选候选池，例如“今日涨停 + 存储芯片 + 成交额前排”。筛出来的个股必须再核对代码、成交额、概念归属。
+- `百度PAE / 百度搜索 + 同花顺`：用于热点题材、舆情热度和概念解释。舆情热但盘面没有放量响应，只能写“舆情热，不是交易主线”。
+- `巨潮资讯网 / 交易所公告`：用于公告全文、业绩、减持、并购、问询函、重大合同核对。公告摘要不能替代全文。
+
+### 2c0. 东方财富快照（本地脚本）
+
+用于快速核对指数、个股最新价、涨跌幅、成交额、换手率和东方财富资金流模型口径。
+
+```bash
+python scripts/fetch_eastmoney_snapshot.py --indices
+python scripts/fetch_eastmoney_snapshot.py --codes 000988 301666 603986 688469
+```
+
+注意：脚本里的 `main_net_inflow_eastmoney` 只代表东方财富资金流模型，不等于外资或机构席位。
+
+如果脚本返回 `eastmoney_push2_unavailable`，说明没有取到实时快照，不能把结果当作价格、涨跌幅、成交额来源；改用 akshare、同花顺、Wind/万得或网页/MCP 核对。
+
+### 2d. 市场信号（alphaear skill）
 
 触发 `alphaear-signal-tracker` skill 获取 DeepEar 高置信度信号，用于补充主线解释，不替代硬数据。
 
-### 2d. 港股/美股映射（yfinance）
+### 2e. 港股/美股映射（yfinance）
 
 ```python
 import yfinance as yf
@@ -79,7 +177,7 @@ import yfinance as yf
 yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 ```
 
-### 2e. 整理事实卡片
+### 2f. 整理事实卡片
 
 ```markdown
 日期：YYYY-MM-DD
@@ -109,6 +207,14 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 - 新闻催化：（来源：）
 - 资金解释：（来源：）
 - 海外映射：
+- 研报/产业逻辑：（来源：东方财富研报 / i问财 / Wind / 券商官网）
+- 公告原文：（来源：巨潮资讯网 / 交易所 / 公司公告）
+
+个股硬校验：
+- 公司名-代码：（已核对 / 未核对）
+- 资金口径：（东方财富 / 同花顺 / Wind / 龙虎榜 / 交易所 / 无）
+- 是否存在同名、近名、代码误配风险：
+- 候选池来源：（i问财 / 东方财富 / 同花顺 / Wind / 无）
 
 情绪与价格：
 - 今日最重要消息：（来源：）
@@ -127,6 +233,42 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 
 详细规则见 `references/market-verification.md` 和 `references/data_sources.md`。
 
+### 2g. 催化可信度闸门（必须执行）
+
+进入写作前，把“为什么今天这样走”的候选原因分成高 / 中 / 低三档：
+
+- **高可信**：两个以上可靠来源确认，且盘面有同步响应（成交额、涨停梯队、龙头承接）。
+- **中可信**：一个可靠来源确认，盘面有局部响应。只能做辅助解释。
+- **低可信**：单源传闻、社交平台热议、未落地的未来事件。不能做主判断、标题或开头第一段。
+
+如果没有高可信催化，不要硬找故事。优先写资金行为：缩量/放量、市场宽度、板块成交额、涨停梯队、龙头承接。
+
+尤其注意：未来事件（如“明天会见”“即将签约”“据传大单”）必须等盘面验证。没有价格和成交额响应时，只能写“市场在等待验证”，不能写成今天行情的主因。
+
+重大催化不得漏写。只要前一交易日或当天有官方发布、产业级事件、重磅业绩、IPO/审核进展、政策、海外映射等高影响消息，并且已经影响过盘面情绪，判断卡必须回答：
+
+- 这个催化昨天/今天是否点燃了市场情绪。
+- 今天情绪是否延续、弱化、兑现或被证伪。
+- 资金留下的是哪条直接受益链，淘汰的是哪些泛概念分支。
+- 正文是否需要写入；如果不写，判断卡必须说明为什么它不是今天核心矛盾。
+
+写入正文时，只写“催化对盘面的真实影响”，不要大段科普。合格写法是：消息点火了什么、今天有没有延续、资金最终选择了谁、读者明天怎么处理。
+
+### 2h. 写作前判断卡（必须执行）
+
+在进入正文前，先按 `references/pre-writing-judgement-card.md` 完成判断卡。判断卡不是正文，不推送给读者，但它决定今天文章怎么写。
+
+判断卡必须写清楚：
+
+- 市场类型：强趋势分歧 / 主线切换 / 情绪退潮 / 指数护盘 / 消息兑现 / 普涨高潮 / 缩量震荡。
+- 历史校准：昨天、前天、近一周的核心判断是否被今天验证或推翻。
+- 核心矛盾：今天最值得写的一件事。
+- 主线筛选：候选方向里谁是真主线、谁只是反弹或跟风。
+- 关注标的判断：若出现操作词，必须给出趋势、龙头、资金、情绪、横向、纵向六维证据。
+- 交易计划：触发条件、风险位、失效信号。
+
+判断卡写不清楚，不进入正文。没有机会时，正文可以短，但判断卡不能省。
+
 ---
 
 ## Step 3：提炼唯一主判断
@@ -134,6 +276,71 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 一篇复盘只保留一个核心判断。多了就变成流水账。
 
 **判断从事实卡片里来，不是套句式套出来的。**
+
+### 3a. 趋势推荐闸门（涉及关注标的时必须先过）
+
+推荐池只放当前主线趋势里的标的。低位、超跌、只涨一天、只靠消息刺激的票，不进入推荐池；除非能同时看到明显趋势反转证据，否则正文连提都不要提。
+
+主线必须每天动态筛选，不能固定写某几个方向。CPO、存储、芯片、算电协同、电力、机器人、军工、消费电子、资源等都只是候选；当天谁具备趋势、资金、情绪和图形共振，就写谁。没有趋势确认的方向，即使当天涨幅靠前也不写推荐。
+
+板块命名必须精准。比如“算电协同/电力产业链情绪股”不能写成“红利电力”；大唐发电、华电辽能、华电能源、韶能股份、晋控电力这类连板/情绪股，不能用长江电力、华能水电、中国核电这类防守红利票替代分析。
+
+一只票进入推荐池，至少满足下面 4 条中的 3 条：
+
+- **趋势结构**：价格仍在关键均线之上，或回踩后重新站回 5/10/20 日均线；不能只是单日长阳。
+- **龙头地位**：属于当前强主线的核心票，或能带动同板块跟涨；不能只因涨幅靠前。
+- **资金承接**：放量上涨、缩量回踩、分时回落有人接；高开低走、放量长上影视为风险信号。
+- **情绪位置**：板块仍有赚钱效应，核心股没有集体破位；若情绪退潮，先写回避和等待点位。
+
+分析股票走向时必须横向和纵向同时看：
+
+- 横向：同板块核心股强弱、板块梯队、涨停/大跌数量、资金是否从同一方向流入。
+- 纵向：近 3-5 日连续性、均线、前高/平台/缺口、量价关系、是否冲高回落。
+- 情绪：是否一致高潮、是否高位分歧、妖股/连板股是否断板、亏钱效应是否扩散。
+- 资金：主力净流入、成交额排名、主动买盘/卖盘、缩量或放量的位置。
+- 指标与图形：5/10/20 日均线、趋势线、平台突破/跌破、长上影/长下影、放量阴线。
+
+写作结论必须落到交易方法：
+
+- **能做**：写清楚低吸、回踩、突破确认、仓位和失效条件。
+- **不能做**：明确写风险，建议暂时回避。
+- **等待**：写清楚等什么点位、什么信号、什么板块行为出现后再看。
+
+严禁把“前期跌得多 + 今天涨了”写成机会。那是反弹，不是趋势。
+
+公众号正文只写给读者看的市场判断，不暴露内部工作过程。不要把用户要求、写作规则、纠错过程、"我之前写错了"、"以后复盘要..."这类对话内容写进文章。
+
+### 3b. 风险否决闸门（优先级高于买点）
+
+任何关注标的进入正文前，必须先按 `references/risk-veto-rules.md` 做风险否决。出现一票否决项时，只能写“观察/回避/等修复”，不能写“低吸/试错/买入/加仓/可做/推荐”。
+
+一票否决包括：
+
+- 高位放量长阴，尤其收盘接近全天低点。
+- 放量长上影或高开低走，说明上方抛压重。
+- 龙头/妖股断板，高位股亏钱效应扩散。
+- 主线核心股集体破位，板块无承接。
+- 单票独涨，板块不跟、核心股不动。
+- 前期弱势低位股只涨一天，无连续反转证据。
+- 减持、监管、业绩变脸、解禁、诉讼等确定风险。
+- 只有传闻或社交热议，没有价格和成交额响应。
+
+风险否决不是看空一切，而是防止把“看起来热闹”的高风险票写成机会。
+
+### 3c. 策略战法选择（只作判断工具）
+
+可参考 `references/trading-strategy-playbook.md` 选择合适判断模块：龙头策略、缩量回踩、放量突破、情绪周期、反包修复、底部放量反转、箱体震荡。
+
+使用顺序：
+
+1. 先判断市场类型。
+2. 再判断是否有主线。
+3. 有主线看龙头/缩量回踩/放量突破。
+4. 高位分歧看情绪周期和反包修复。
+5. 低位票只用底部反转模型观察，不直接推荐。
+6. 没主线用箱体震荡模型，写风险和等待。
+
+战法不能变成固定模板。每天先看盘面，再决定是否使用。
 
 看完事实卡片，先做两个判断，再写结论：
 
@@ -160,21 +367,47 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 
 详细规则见 `references/recap-writing-playbook.md` 和 `references/writing_template.md`。
 
-**推荐结构：**
+**结构不固定，先看当天盘面，再决定写法。**
 
-1. 标题（用Step 5的公式选）
-2. 开头：直接给核心判断（不铺垫背景）
-3. 为什么今天会这样走（驱动逻辑）
-4. 真正的主线是什么（有支撑，不只说涨幅第一）
-5. 哪些方向只是陪跑或假强
-6. 明天看什么（2-4个具体观察点，可验证）
-7. 风险提示
+今天是普涨、普跌、主线切换、强趋势分歧、情绪退潮、指数护盘、消息兑现，文章结构都应该不同。不能每天机械写成“指数 → 板块 → 个股 → 明天看什么”的固定模板。
+
+**公众号读者视角硬规则：**
+
+- 正文只能写给公众号读者看，不能出现内部协作痕迹。严禁写“上一版漏掉”“你说得对”“我之前写错”“按你要求”“截图里”“画框内容”“问财数据显示”这类工作过程语言。
+- 正文不能写成作者心理活动或内部检讨。不要写“昨天我把风险权重打得太高”“当时的判断是”“所以今天结论要改”“打脸本身不重要”这类自我对话。历史判断被修正时，直接写成市场结论：昨天的退潮判断被今天盘面修正，修正原因是什么，读者下一步怎么处理。
+- 数据来源可以放在文末“数据来源”里，正文中不要反复暴露“我从哪里抓的”。正文要呈现结论和证据，不呈现采集过程。
+- 每天开头必须换叙事入口，入口由当天盘面决定。可以从一张板块图、一个反常个股、成交额背离、监管事件、龙虎榜、海外映射、指数背离、亏钱效应、涨停梯队、消息兑现中选择，不要连续两天用同一种开头。
+- 不要连续使用“今天真正重要的是”“真正的主线”“明天看什么”“这才是今天复盘最重要的地方”“不要把市场看窄了”等固定句式。能不用就不用，必须用时一篇最多出现一个。
+- 如果当天盘面是多分支扩散，文章结构可以写成“盘面证据 → 产业链地图 → 强弱分层 → 次日验证”；如果是单核心矛盾，可以只围绕一个矛盾写短文；如果是退潮日，优先写亏钱效应和回避条件。
+- 不要为了覆盖而把每个强势板块都列一遍。先横向扫描全市场，再选最能解释当天盘面的 2-4 个核心分支；其余只在“降级观察/轮动”里一笔带过。
+- 可以引用昨天、前天或近一周文章里的判断，但必须自然服务今天的盘面。只有当历史判断被验证、被修正、或直接影响今天交易计划时才写进正文；不要为了证明自己正确而硬写。
+- 历史回看写法要像连续跟盘的人复盘，例如“昨天说的低位扩散，今天继续验证，但持续性依然不够”，不要写成“我昨天预判正确”“按昨天文章模板继续看”这种自我表扬或内部过程。
+
+可选结构示例：
+
+- **强趋势分歧日**：先写谁还抗住 → 谁开始掉队 → 分歧后看什么确认。
+- **主线切换日**：先写旧主线为什么失效 → 新主线资金证据 → 明天验证点。
+- **情绪退潮日**：先写亏钱效应 → 龙头/妖股断板 → 哪些方向必须回避。
+- **指数护盘日**：先写指数和多数个股背离 → 谁在护盘 → 市场真实强弱。
+- **消息兑现日**：先写情绪与价格背离 → 资金提前定价 → 后续等待新催化。
+
+今天盘面适合哪种，就用哪种。标题、章节数量、章节顺序都可以变；核心判断必须清楚。
 
 **写作要求：**
 - 开头第一段就给结论，不写"今天市场..."这类导语
+- 开头必须像发给公众号读者的判断，不像作者对自己说话。可以承认判断修正，但第一屏要先给市场结论，不写自我检讨。
 - 每段只表达一个意思
 - 板块、个股、成交额都服务于核心判断，不单独列数据
 - 有自己的立场，不只描述发生了什么
+- 每篇正文最多围绕 2-4 个关键方向展开；无关方向不凑数
+- 如果一条重大消息是当天最大变量，文章可以只围绕“消息点火后是否延续”这一件事写，不要再凑满多个板块。
+- 正文以精简为默认。没有必要的背景解释、行业科普、重复判断、完整板块清单全部删除；宁可短，也不要啰嗦。
+- 文章风格跟随盘面：高潮日可以紧张，分歧日要谨慎，普涨日要拆真假，退潮日要直接提示风险
+- 结尾必须给明确的次日偏向和动作建议，不能只写“明天看承接/看三件事”。至少回答三件事：明天偏强还是偏弱；有仓是拿、减还是卖；没仓是追、等分歧还是回避。
+- 参考历史好稿的判断方式，不复制固定结构和固定措辞
+- 可以把 `0514 强趋势还在，但跟风票开始掉队` 当参考例子，但只学它的优点：结论直接、少废话、围绕强趋势、用条件句给交易计划。不要照搬它的格式：不固定“CPO/算电/存储/芯片”，不固定四段结构，不固定“明天怎么做”模板。
+- 每天先判断盘面类型：强趋势分歧、主线切换、情绪退潮、指数护盘、消息兑现、缩量震荡，然后按当天盘面重组文章。
+- 如果当天只有一个核心矛盾，就只写一个；如果当天多主线分歧，再拆 2-4 个方向。没有好机会时，文章可以短，重点写风险和等待条件。
 
 ---
 
@@ -232,6 +465,7 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 - [ ] 有读者视角——"如果你持有科技线..."或"对于做短线的来说..."
 - [ ] 有反直觉角度——不是在重复今天财联社/雪球都说过的
 - [ ] 读起来像一个今天真的跟盘的人在说话，不像数据播报员
+- [ ] 开头和结尾不像 AI 自我复盘：没有心理独白、内部纠错、固定“看承接”套路
 
 ---
 
@@ -249,43 +483,71 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 | **D6 关注转化** | 有系列感或人设差异，让读者有理由关注账号 | 和其他财经号没有区别 |
 | **D7 裂变单元** | 有一句话/一个判断可以单独截图转发 | 全文没有能独立存在的金句 |
 
-**D5 互动引导写法**（结尾必须加，在风险提示之前）：
+**D5 互动引导写法**（可加，但不能替代交易结论）：
 
 ```
 你觉得[今天最强的板块/明天的分歧]，还能走多久？
 留言聊聊，你今天拿的是哪个方向。
 ```
 
-不要用是非题（"你觉得明天会涨吗？"），用开放性问题（"你今天重仓的是什么方向？"）——开放性问题的评论率高3-5倍。
+不要用是非题（"你觉得明天会涨吗？"），用开放性问题（"你今天重仓的是什么方向？"）。但互动引导不能每天固定出现，也不能放在操作结论前面。先讲清明天怎么做，再决定是否加一句互动。
 
 ---
 
 ## Step 8：排版、配图与封面
 
-详细封面设计规范见 `references/cover-design.md`。
+详细封面规范见 `references/cover-design.md`，HTML 排版模板见 `references/writing_template.md`。
 
-### 8a. 正文排版（md2wechat-skill）
+### 8a. 正文 HTML 排版
 
-正文 Markdown 定稿后，调用 `md2wechat-skill` 转换为公众号 HTML：
-- 触发时机：L1-L4 自检全部通过之后
-- 输出产物：可直接粘贴进公众号编辑器的 HTML 片段
+**优先使用内置模板直接生成 HTML，不依赖 md2wechat-skill（API key 不稳定）。**
+
+完整 HTML 模板在 `references/writing_template.md` → "HTML 排版模板"章节，复制模板后填入当日数据。
+
+**排版设计系统（来自 xiaohu-wechat-format 仓库）：**
+
+| 设计要素 | 规范 |
+|---------|------|
+| 页面背景 | `#f0f4f8`（浅蓝灰） |
+| 卡片背景 | `#ffffff` + `box-shadow: 0 4px 16px rgba(58,65,80,0.06)` |
+| 主色调 | `#1a3a5c`（深蓝）/ `#4a7c9b`（中蓝）|
+| 字号 | 正文 16px，列表 15px，标签 10-11px |
+| 行高 | 1.75-1.85 |
+| 字间距 | 0.3-0.5px |
+
+**三条硬性排版规则：**
+
+1. **禁止 `display:flex`**——微信渲染不稳定，多列布局一律用 `<table>`
+2. **禁止 `<style>` 标签**——微信会过滤，所有样式必须内联 `style="..."`
+3. **禁止 `position:absolute/fixed`**——破坏微信文章流式布局
+
+**标准页面结构（从上到下）：**
+
+```
+① 标题卡片（深蓝渐变背景）
+② 数据看板（4格 table 布局，带彩色顶边框）
+③ 导语卡片（开篇判断，2段）
+④ Section 01 卡片（正文主体）
+⑤ Section 02 卡片（观察点/分析）
+⑥ Section 03 卡片（可验证判断，编号列表）
+⑦ 风险提示（灰色小字）
+⑧ 互动引导（深蓝底，和标题卡片呼应）
+```
+
+如果调用 md2wechat-skill 失败（API key 缺失），直接按模板手动生成 HTML，不要等待。
 
 ### 8b. 配图决策
 
-根据内容类型选择配图方式：
+| 内容需求 | 方式 |
+|----------|------|
+| 封面图 | HTML 模板 → Playwright 截图（900×500px）|
+| 数据对比图、热力图 | HTML 图表 → Playwright 截图 |
+| 行情氛围图 | image-generator skill |
+| 截图说明数据 | 直接截 akshare 输出 |
 
-| 内容需求 | 方式 | 说明 |
-|----------|------|------|
-| 封面图 | HTML 模板 → Playwright 截图 | 可控、文字精准，金融数字不会出错 |
-| 行情走势图、K线 | image-generator skill | 概念性/氛围类图片，不要求精确数字 |
-| 数据对比表格、板块热力图 | HTML 图表 → Playwright 截图 | 数字精确，样式可复用 |
-| 真实界面引用 | 截图 | 引用 akshare 输出或交易软件界面时 |
-
-**原则：封面一定要，正文配图按需加，不强制每篇都有正文配图。**
+原则：封面必须有，正文配图按需加，不强制每篇都有。
 
 ### 8c. 封面生成流程
-
-两种方式，按需选择：
 
 **方式 A：Guizang 风格封面对（推荐）**
 
@@ -296,52 +558,60 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 
 **方式 B：快速深色渐变封面（原方案）**
 
-文件命名：`output/cover-stock-YYYYMMDD.html`
+封面核心思路：**用情绪插画代替数字图表**，读者一眼就感受到今天行情怎样。不放指数点位，不放成交额。
 
-封面内容要求：
-- 核心判断句（不超过16字，当天最强结论）
-- 日期标注
-- 可选：关键数字（指数/成交额）
+**Step 1：根据核心判断选择情绪，生成插画**
 
-CSS 规范（借鉴 vibe-writer-pro）：
-```css
-/* 尺寸固定 900×500px，禁止溢出 */
-body { width: 900px; height: 500px; overflow: hidden; margin: 0; }
-/* 深色渐变底，金融色系 */
-background: linear-gradient(135deg, #0a0e1a 0%, #1a2744 60%, #0d1f3c 100%);
-/* 主文字：白色大字 + 金色/红色强调 */
-/* 禁止使用浅色背景 + 黑字的"PPT风" */
-```
+从 Step 3 的核心结论判断市场情绪，对应关系：
 
-**Step 2：Playwright 截图 → PNG**
+| 行情 | 情绪 | 人物表现 |
+|------|------|---------|
+| 大涨 +1.5%+ | 亢奋欢呼 | 跳起来庆祝，背景绿色屏幕 |
+| 小涨 +0.5~1.5% | 满意轻松 | 竖拇指微笑 |
+| 震荡横盘 | 迷茫困惑 | 挠头，周围漂浮问号 |
+| 小跌 -0.5~1.5% | 担忧皱眉 | 盯着手机屏幕发愁 |
+| 大跌 -1.5%+ | 崩溃沮丧 | 捂脸，背景红色下跌箭头 |
+| 暴跌 -3%+ | 惊吓绝望 | 夸张惊恐表情，从K线悬崖坠落 |
+| 主线切换 | 慌乱奔跑 | 在两块屏幕之间来回跑 |
+| AI/科技强势 | 热血冲劲 | 骑火箭冲天，科技感元素 |
 
+调用 `image-generator` skill，使用 `references/cover-design.md` 第二章对应提示词，指定 `size: 1792×1024`（16:9横版）。
+
+输出：`output/stock_review_YYYYMMDD_illus.png`
+
+**Step 2：选择封面方案**
+
+- **简单版（推荐赶时间时）**：直接用插画作为封面 PNG，跳到 Step 4
+- **完整版**：插画作背景 + 标题文字叠加，继续 Step 3
+
+**Step 3（完整版）：生成文字叠加 HTML**
+
+文件：`output/stock_review_YYYYMMDD_cover.html`
+
+把插画路径填入模板 `<img class="cover-bg" src="...">` 里，叠加标题和日期文字。完整 HTML 模板见 `references/cover-design.md` 第四章。
+
+用本地 HTTP 服务访问（file:// 被 Playwright 拦截）：
 ```bash
-# 确认 CDP Proxy 已启动
-bash ~/.claude/skills/web-access/scripts/check-deps.sh
-
-# 截图前必须先 resize，再导航，再截图
-# resize: 900×500
-# navigate: file:///path/to/cover-stock-YYYYMMDD.html
-# screenshot → output/cover-stock-YYYYMMDD.png
+python -m http.server 18508   # 在 output/ 目录运行
 ```
 
-每张截图必须按顺序：resize → navigate → screenshot，不能省略 resize 步骤。
+Playwright 截图顺序不能改变：`resize(900,500)` → `navigate` → `screenshot`
 
-**Step 3：验证封面**
+输出：`output/stock_review_YYYYMMDD_cover.png`
 
-截图完成后用 Read 工具查看图片，确认：
-- [ ] 文字清晰可读，无截断
-- [ ] 背景不是白色或浅色
-- [ ] 日期正确
+**Step 4：用 Read 工具验证**
+- [ ] 人物表情清晰，情绪一眼可辨
+- [ ] 插画中没有出现任何数字或文字（文字由叠加层提供）
+- [ ] 标题文字可读，遮罩不过重
 
 ### 8d. 文件命名规范
 
 ```
 output/
-├── stock_review_YYYYMMDD.md          # 正文 Markdown
-├── stock_review_YYYYMMDD.html        # 公众号 HTML（md2wechat 输出）
-├── cover-stock-YYYYMMDD.html         # 封面 HTML 模板
-└── cover-stock-YYYYMMDD.png          # 封面截图（推送用）
+├── stock_review_YYYYMMDD.md               # 正文 Markdown
+├── stock_review_YYYYMMDD.html             # 公众号 HTML（排版完成版）
+├── stock_review_YYYYMMDD_cover.html       # 封面 HTML 模板
+└── stock_review_YYYYMMDD_cover.png        # 封面截图（推送用）
 ```
 
 ---
@@ -425,6 +695,63 @@ python push_stock_review_draft.py \
 1. `--html` 和 `--cover` 路径是当天日期文件，不是旧文件
 2. `--title` 是最终定稿标题，不是占位符
 3. `--digest` 是实质性摘要，不是"今日A股复盘"这类无信息量的句子
+4. HTML 必须使用 `references/writing_template.md` 的内联卡片排版；禁止把普通 Markdown 转成裸 HTML 后直接推送
+
+---
+
+## Step 10：历史判断记录与复盘校准
+
+每天写新文章前，先回看最近 1-5 篇复盘和历史判断账本，判断昨天、前天或近一周的预判是否被今天验证、修正或推翻。这个步骤必须做，但不一定写进正文。
+
+写进正文的门槛：
+
+- 今天盘面直接验证了之前的主线判断、风险提示或等待条件。
+- 之前提到的核心股/板块出现了明显强化、破位、修复或失效。
+- 这段历史回看能帮助读者理解今天怎么操作，而不是展示作者“说对了”。
+
+不写进正文的情况：
+
+- 历史判断和今天盘面关系不大。
+- 只能写成自我表扬，没有新增交易价值。
+- 会让文章显得像内部复盘流程，而不是公众号文章。
+
+每篇复盘定稿后，把核心判断写入历史账本，便于 1/3/5/10 个交易日后复盘。使用 `scripts/judgement_ledger.py`：
+
+```bash
+python scripts/judgement_ledger.py add \
+  --date YYYY-MM-DD \
+  --market-type "强趋势分歧" \
+  --core-judgement "强趋势还在，但跟风开始掉队" \
+  --mainline "CPO / 算力硬件" \
+  --watch-condition "核心股不破5日线且成交额维持" \
+  --invalidation "核心股放量跌破10日线，亏钱效应扩散" \
+  --article-path output/stock_review_YYYYMMDD.md
+```
+
+每天写新文章前，可以查看到期未复盘判断：
+
+```bash
+python scripts/judgement_ledger.py due --as-of YYYY-MM-DD
+```
+
+复盘时补结果：
+
+```bash
+python scripts/judgement_ledger.py review \
+  --id YYYY-MM-DD-强趋势分歧 \
+  --outcome hit \
+  --score 8 \
+  --note "主线延续，跟风继续掉队，判断基本正确"
+```
+
+校准规则：
+
+- 判断命中：以后同类盘面可提高权重。
+- 判断失效：记录原因，是资金、情绪、图形还是消息误判。
+- 触发风险位后继续下跌：说明风险位有效。
+- 触发买点后没有延续：检查是否忽略了情绪或板块共振。
+
+历史账本默认写入 `output/stock_review_judgements.jsonl`。
 
 ---
 
@@ -436,5 +763,5 @@ python push_stock_review_draft.py \
 - 不写"情绪明显修复"，写涨停家数或量能变化
 - 不把复盘写成"指数+板块+个股"三段式流水账
 - 不把涨幅榜第一当成主线
-- 不写"后续值得关注"，写明天具体看什么
+- 不写"后续值得关注"，也不每天写"明天看承接"。要写明天大概率偏强/偏弱/震荡，以及读者该拿、减、等还是回避
 - 不推荐股票，除非用户明确要"关注标的"

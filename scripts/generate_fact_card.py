@@ -54,6 +54,10 @@ def build_markdown(data: dict[str, Any]) -> str:
     themes = data.get("themes", {})
     catalyst = data.get("catalyst", {})
     leaders = data.get("leaders", {})
+    source_check = data.get("source_check", {})
+    stock_verification = data.get("stock_verification", {})
+    judgement = data.get("judgement_card", {})
+    recommendations = data.get("recommendation_filter", {})
     conclusion = data.get("one_line_judgement") or data.get("conclusion") or "待补充"
 
     parts = [
@@ -89,10 +93,34 @@ def build_markdown(data: dict[str, Any]) -> str:
         line("资金解释", catalyst.get("flow")),
         line("海外映射", catalyst.get("overseas")),
         "",
+        "## 来源与硬校验",
+        line("行情来源", source_check.get("market_data")),
+        line("新闻来源", source_check.get("news")),
+        line("资金/龙虎榜口径", source_check.get("flow_or_lhb")),
+        line("研报/产业逻辑来源", source_check.get("research")),
+        line("公告原文来源", source_check.get("announcement")),
+        line("舆情/热点来源", source_check.get("sentiment")),
+        line("代码-名称核对", stock_verification.get("name_code")),
+        line("同名/近名风险", stock_verification.get("ambiguity_risk")),
+        line("候选池来源", stock_verification.get("candidate_source")),
+        line("未核对项", stock_verification.get("unverified")),
+        "",
         "## 代表个股",
         line("核心龙头1", format_leader(leaders.get("leader_1"))),
         line("核心龙头2", format_leader(leaders.get("leader_2"))),
         line("核心龙头3", format_leader(leaders.get("leader_3"))),
+        "",
+        "## 写作前判断卡",
+        line("市场类型", judgement.get("market_type")),
+        line("核心矛盾", judgement.get("core_conflict")),
+        line("正文应该围绕", judgement.get("write_focus")),
+        line("正文不应该写", judgement.get("avoid_focus")),
+        "",
+        "## 关注标的过滤",
+        line("可写入推荐池", recommendations.get("approved")),
+        line("只能观察", recommendations.get("watch_only")),
+        line("暂时回避", recommendations.get("avoid")),
+        line("明确剔除", recommendations.get("excluded")),
         "",
         "## 一句话判断",
         f"- {conclusion}",
