@@ -9,6 +9,8 @@ description: 一键生成A股行情分析微信公众号文章。融合DeepEar�
 
 不是拼数据流水账，是写一个有立场的人对今天市场的理解。
 
+**可选依赖：** 如需生成小红书图文组图或 Guizang 风格封面，须安装 `guizang-social-card-skill`（`~/.claude/skills/guizang-social-card-skill/`）。
+
 ---
 
 ## 触发任务
@@ -283,7 +285,16 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 
 ### 8c. 封面生成流程
 
-**Step 1：生成 HTML 封面文件**
+两种方式，按需选择：
+
+**方式 A：Guizang 风格封面对（推荐）**
+
+依赖 `guizang-social-card-skill`。生成 21:9 主封面（2100×900）+ 1:1 方封面（1080×1080）。
+规格详见 `references/wechat-cover-guizang.md`。
+
+适用：有 guizang-social-card-skill 时的默认选择。
+
+**方式 B：快速深色渐变封面（原方案）**
 
 文件命名：`output/cover-stock-YYYYMMDD.html`
 
@@ -331,6 +342,58 @@ output/
 ├── stock_review_YYYYMMDD.html        # 公众号 HTML（md2wechat 输出）
 ├── cover-stock-YYYYMMDD.html         # 封面 HTML 模板
 └── cover-stock-YYYYMMDD.png          # 封面截图（推送用）
+```
+
+---
+
+## Step 8.5：小红书图文生成（可选）
+
+仅当用户主动要求 XHS/小红书同步时执行。不强制每篇都做。
+
+**触发条件：** Step 7 传播力评估通过后，询问一次：
+> "需要同步发小红书吗？我可以把这篇复盘转成图文组图（7 张），IKB 蓝 Swiss 风格。"
+
+用户说是 → 执行。用户跳过 → 直接进 Step 9。不重复问。
+
+**执行流程：**
+
+1. 从事实卡片（Step 2e）提取所有输入字段：
+   - 市场类型短语（核心结论）
+   - 四大指数数据（点位 + 涨跌幅，精确到小数点后两位）
+   - 强势/弱势板块名称
+   - 当日主要催化剂（如有）
+   - 四条主线及今日判断
+   - 明日三种仓位操作指引
+   - 三个复盘结论
+
+2. 按 `references/xhs-card-recipes.md` 规格，调用 `guizang-social-card-skill` 生成 HTML + 渲染 PNG。
+
+3. 输出到 `output/xhs-cards-YYYYMMDD/output/`，共 6-7 张图。
+
+4. 渲染后展示给用户，问：先你自己看，还是我自动核查一遍？
+
+**色彩规则（由当日行情决定，不需用户选）：**
+
+| 当日特征 | 用色 |
+|---------|------|
+| 普通复盘（默认） | IKB Blue |
+| 明显下跌 / 风险警示 / 情绪退潮 | Safety Orange |
+| 强势上涨 / 情绪高涨 | Lemon Yellow |
+
+**文件命名：**
+
+```
+output/
+└── xhs-cards-YYYYMMDD/
+    ├── index.html
+    └── output/
+        ├── xhs-01-cover.png
+        ├── xhs-02-index-data.png
+        ├── xhs-03-sector-strength.png
+        ├── xhs-04-catalyst-check.png   (无主要催化剂时省略)
+        ├── xhs-05-mainline-matrix.png
+        ├── xhs-06-tomorrow-plan.png
+        └── xhs-07-conclusion.png
 ```
 
 ---
