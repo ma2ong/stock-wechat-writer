@@ -193,7 +193,7 @@
 ```
 正文 Markdown
 → md2wechat-skill 转公众号 HTML
-→ 封面 PNG（Playwright 截图）
+→ generate_social_cards.py 生成公众号封面 / 小红书图文
 → pre_publish_check.py 发稿前检查
 → judgement_ledger.py 记录核心判断（建议）
 → push_stock_review_draft.py 推送草稿箱
@@ -241,6 +241,7 @@ stock-wechat-writer/
     ├── check_data_sources.py         # 数据源可用性探测
     ├── fetch_eastmoney_snapshot.py   # 东方财富指数/个股快照采集
     ├── generate_fact_card.py         # 事实卡片生成辅助
+    ├── generate_social_cards.py      # Guizang 风格公众号封面 / 小红书图文生成
     ├── judgement_ledger.py           # 历史判断记录与复盘校准
     └── sample_fact_input.json        # 示例输入
 ```

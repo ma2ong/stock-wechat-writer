@@ -30,7 +30,7 @@ Most important current rules:
 
 不是拼数据流水账，是写一个有立场的人对今天市场的理解。
 
-**可选依赖：** 如需生成小红书图文组图或 Guizang 风格封面，须安装 `guizang-social-card-skill`（`~/.claude/skills/guizang-social-card-skill/`）。
+**图文生成：** 本 skill 已内置 Guizang 风格图文生成脚本 `scripts/generate_social_cards.py`，可从复盘 Markdown 直接生成小红书组图和公众号封面对；不依赖 VoxFlow CLI、`voxflow login` 或外部 card skill。
 
 ---
 
@@ -565,10 +565,26 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 
 **方式 A：Guizang 风格封面对（推荐）**
 
-依赖 `guizang-social-card-skill`。生成 21:9 主封面（2100×900）+ 1:1 方封面（1080×1080）。
-规格详见 `references/wechat-cover-guizang.md`。
+使用内置脚本生成 21:9 主封面（2100×900）+ 1:1 方封面（1080×1080），同时可生成小红书 3:4 组图。
+规格详见 `references/wechat-cover-guizang.md` 和 `references/social-card-guizang-integration.md`。
 
-适用：有 guizang-social-card-skill 时的默认选择。
+适用：日常复盘默认选择。无需安装外部 skill。
+
+```bash
+python scripts/generate_social_cards.py \
+  --article output/stock_review_YYYYMMDD.md \
+  --date YYYYMMDD \
+  --mode wechat
+```
+
+输出：
+
+```text
+output/social-cards-YYYYMMDD/output/
+├── wechat-cover-21x9-YYYYMMDD.png
+├── wechat-cover-1x1-YYYYMMDD.png
+└── wechat-cover-pair-preview-YYYYMMDD.png
+```
 
 **方式 B：快速深色渐变封面（原方案）**
 
@@ -650,9 +666,16 @@ output/
    - 明日三种仓位操作指引
    - 三个复盘结论
 
-2. 按 `references/xhs-card-recipes.md` 规格，调用 `guizang-social-card-skill` 生成 HTML + 渲染 PNG。
+2. 按 `references/xhs-card-recipes.md` 和 `references/social-card-guizang-integration.md` 规格，调用内置脚本生成 PNG。
 
-3. 输出到 `output/xhs-cards-YYYYMMDD/output/`，共 6-7 张图。
+```bash
+python scripts/generate_social_cards.py \
+  --article output/stock_review_YYYYMMDD.md \
+  --date YYYYMMDD \
+  --mode xhs
+```
+
+3. 输出到 `output/social-cards-YYYYMMDD/output/`，默认 5 张，必要时扩展到 7 张。
 
 4. 渲染后展示给用户，问：先你自己看，还是我自动核查一遍？
 
@@ -668,16 +691,14 @@ output/
 
 ```
 output/
-└── xhs-cards-YYYYMMDD/
+└── social-cards-YYYYMMDD/
     ├── index.html
     └── output/
         ├── xhs-01-cover.png
-        ├── xhs-02-index-data.png
-        ├── xhs-03-sector-strength.png
-        ├── xhs-04-catalyst-check.png   (无主要催化剂时省略)
-        ├── xhs-05-mainline-matrix.png
-        ├── xhs-06-tomorrow-plan.png
-        └── xhs-07-conclusion.png
+        ├── xhs-02-market-contrast.png
+        ├── xhs-03-sell-pressure.png
+        ├── xhs-04-money-shift.png
+        └── xhs-05-trade-plan.png
 ```
 
 ---
