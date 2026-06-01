@@ -651,7 +651,7 @@ output/
 仅当用户主动要求 XHS/小红书同步时执行。不强制每篇都做。
 
 **触发条件：** Step 7 传播力评估通过后，询问一次：
-> "需要同步发小红书吗？我可以把这篇复盘转成图文组图（7 张），IKB 蓝 Swiss 风格。"
+> "需要同步发小红书吗？我可以把这篇复盘转成 2-3 张图文卡片，IKB 蓝 Swiss 风格。"
 
 用户说是 → 执行。用户跳过 → 直接进 Step 9。不重复问。
 
@@ -672,10 +672,11 @@ output/
 python scripts/generate_social_cards.py \
   --article output/stock_review_YYYYMMDD.md \
   --date YYYYMMDD \
-  --mode xhs
+  --mode xhs \
+  --xhs-pages auto
 ```
 
-3. 输出到 `output/social-cards-YYYYMMDD/output/`，默认 5 张，必要时扩展到 7 张。
+3. 输出到 `output/social-cards-YYYYMMDD/output/`，默认 2 张，最多 3 张。能用 2 页讲清就不生成第 3 页；只有文章复杂、资金去向和交易动作放不下时才自动加第 3 页。
 
 4. 渲染后展示给用户，问：先你自己看，还是我自动核查一遍？
 
@@ -695,10 +696,8 @@ output/
     ├── index.html
     └── output/
         ├── xhs-01-cover.png
-        ├── xhs-02-market-contrast.png
-        ├── xhs-03-sell-pressure.png
-        ├── xhs-04-money-shift.png
-        └── xhs-05-trade-plan.png
+        ├── xhs-02-trade-plan.png
+        └── xhs-03-money-shift.png   (复杂盘面才生成)
 ```
 
 ---

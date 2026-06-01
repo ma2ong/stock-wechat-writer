@@ -120,46 +120,65 @@ def clean_bullet(text: str, max_len: int = 44) -> str:
     return text[: max_len - 1] + "…"
 
 
-def build_cards(article: Article) -> list[Card]:
+def unique_bullets(items: list[str], limit: int) -> list[str]:
+    seen = set()
+    out = []
+    for item in items:
+        key = re.sub(r"[\s，。；、,.%0-9]+", "", item)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.append(item)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def build_xhs_cards(article: Article, page_mode: str = "auto") -> list[Card]:
     stats = find_lines(article, ["科创50", "涨停池", "全市场"], 3)
     outflow = find_lines(article, ["净流出", "跌停", "破位", "被砸"], 3)
     inflow = find_lines(article, ["煤炭", "软件", "传媒", "AI 应用", "资金"], 3)
     plan = find_lines(article, ["周二", "手里是", "空仓", "别追", "减"], 4)
     cover_title = article.title.replace("，", "\n", 1).replace(",", "\n", 1)
 
+    cover_bullets = unique_bullets([clean_bullet(p, 38) for p in (stats[:2] + outflow[:2] + inflow[:1])], 3)
+    if len(cover_bullets) < 3:
+        cover_bullets = unique_bullets(cover_bullets + [clean_bullet(p, 38) for p in article.paragraphs], 3)
+
+    action_bullets = [clean_bullet(p, 42) for p in plan[:4]]
+    if len(action_bullets) < 3:
+        action_bullets.extend(clean_bullet(p, 42) for p in article.paragraphs[-(3 - len(action_bullets)) :])
+
     cards = [
         Card(
             slug="cover",
             kicker="A股复盘",
             title=cover_title,
-            bullets=[clean_bullet(p, 36) for p in article.paragraphs[:3]],
+            bullets=cover_bullets[:3],
             footer=fmt_date(article.date),
-        ),
-        Card(
-            slug="market-contrast",
-            kicker="今天最反常",
-            title="指数很差\n个股很活",
-            bullets=[clean_bullet(p) for p in stats[:3]] or [clean_bullet(article.paragraphs[0])],
-        ),
-        Card(
-            slug="sell-pressure",
-            kicker="资金撤出",
-            title="高位硬件\n先被卖",
-            bullets=[clean_bullet(p) for p in outflow[:3]] or [clean_bullet(p) for p in article.paragraphs[2:5]],
-        ),
-        Card(
-            slug="money-shift",
-            kicker="资金去向",
-            title="低位试错\n开始扩散",
-            bullets=[clean_bullet(p) for p in inflow[:3]] or [clean_bullet(p) for p in article.paragraphs[5:8]],
         ),
         Card(
             slug="trade-plan",
             kicker="交易动作",
             title="别急追\n先筛选",
-            bullets=[clean_bullet(p) for p in plan[:4]] or [clean_bullet(p) for p in article.paragraphs[-4:]],
+            bullets=action_bullets[:4],
         ),
     ]
+
+    # Default to 2 pages. A normal daily recap should be dense, not split into
+    # a long carousel. Page 3 is reserved for unusually long or explicitly
+    # requested card sets.
+    needs_third = page_mode == "3" or (page_mode == "auto" and len(article.paragraphs) > 30)
+    if needs_third:
+        cards.insert(
+            1,
+            Card(
+                slug="money-shift",
+                kicker="资金去向",
+                title="钱往哪走",
+                bullets=[clean_bullet(p, 42) for p in (outflow[:1] + inflow[:3])][:4],
+            ),
+        )
     return cards
 
 
@@ -233,7 +252,7 @@ def draw_wrapped(
     return y
 
 
-def render_xhs_card(card: Card, article: Article, idx: int, accent: tuple[int, int, int], out: Path) -> None:
+def render_xhs_card(card: Card, article: Article, idx: int, total: int, accent: tuple[int, int, int], out: Path) -> None:
     w, h = 1080, 1440
     img = Image.new("RGB", (w, h), PAPER)
     draw = ImageDraw.Draw(img)
@@ -266,7 +285,7 @@ def render_xhs_card(card: Card, article: Article, idx: int, accent: tuple[int, i
     footer = card.footer or "内容仅作复盘参考，不构成投资建议"
     draw.line((margin, h - 142, w - margin, h - 142), fill=LINE, width=2)
     draw.text((margin, h - 106), footer, fill=MUTED, font=font(24))
-    draw.text((w - margin - 150, h - 106), f"{idx:02d}/{5:02d}", fill=MUTED, font=font(24))
+    draw.text((w - margin - 150, h - 106), f"{idx:02d}/{total:02d}", fill=MUTED, font=font(24))
     img.save(out)
 
 
@@ -340,7 +359,7 @@ def esc(text: str) -> str:
     return html.escape(text).replace("\n", "<br>")
 
 
-def guizang_xhs_section(card: Card, article: Article, idx: int) -> str:
+def guizang_xhs_section(card: Card, article: Article, idx: int, total: int) -> str:
     bullet_html = "\n".join(
         f"""
         <div class="card-fill">
@@ -359,7 +378,7 @@ def guizang_xhs_section(card: Card, article: Article, idx: int) -> str:
           <span>{esc(fmt_date(article.date))}</span>
         </div>
         <div class="stack gap-7">
-          <p class="t-cat">A股复盘 · {idx:02d}/05</p>
+          <p class="t-cat">A股复盘 · {idx:02d}/{total:02d}</p>
           <h1 class="h-statement">{esc(card.title)}</h1>
         </div>
         <div class="stack gap-5">
@@ -419,7 +438,8 @@ def write_guizang_html(out_root: Path, article: Article, cards: list[Card], acce
         template,
         count=1,
     )
-    posters = "\n".join(guizang_xhs_section(card, article, idx) for idx, card in enumerate(cards, start=1))
+    total = len(cards)
+    posters = "\n".join(guizang_xhs_section(card, article, idx, total) for idx, card in enumerate(cards, start=1))
     posters += "\n" + guizang_wechat_sections(article)
     rendered = re.sub(r"\s*<!-- POSTERS_HERE -->.*?</main>", "\n" + posters + "\n  </main>", template, flags=re.S)
     out_path = out_root / "guizang-index.html"
@@ -432,6 +452,7 @@ def main() -> int:
     parser.add_argument("--article", required=True, type=Path, help="Markdown recap article path")
     parser.add_argument("--date", help="YYYYMMDD, defaults to date in article filename")
     parser.add_argument("--mode", choices=["all", "xhs", "wechat"], default="all")
+    parser.add_argument("--xhs-pages", choices=["auto", "2", "3"], default="auto", help="XHS pages: auto defaults to 2 and only uses 3 for complex articles")
     parser.add_argument("--accent", choices=["auto", *ACCENTS.keys()], default="auto")
     parser.add_argument("--output-dir", type=Path, help="Output root, defaults to output/social-cards-YYYYMMDD")
     args = parser.parse_args()
@@ -444,11 +465,14 @@ def main() -> int:
     cards_dir.mkdir(parents=True, exist_ok=True)
 
     image_paths: list[Path] = []
-    cards = build_cards(article)
+    cards = build_xhs_cards(article, args.xhs_pages)
     if args.mode in {"all", "xhs"}:
+        for old in cards_dir.glob("xhs-*.png"):
+            old.unlink()
+        total = len(cards)
         for idx, card in enumerate(cards, start=1):
             out = cards_dir / f"xhs-{idx:02d}-{card.slug}.png"
-            render_xhs_card(card, article, idx, accent, out)
+            render_xhs_card(card, article, idx, total, accent, out)
             image_paths.append(out)
 
     if args.mode in {"all", "wechat"}:

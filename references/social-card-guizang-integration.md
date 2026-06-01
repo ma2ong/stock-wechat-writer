@@ -26,10 +26,8 @@ output/social-cards-YYYYMMDD/
 ├── index.html
 └── output/
     ├── xhs-01-cover.png
-    ├── xhs-02-market-contrast.png
-    ├── xhs-03-sell-pressure.png
-    ├── xhs-04-money-shift.png
-    ├── xhs-05-trade-plan.png
+    ├── xhs-02-trade-plan.png
+    ├── xhs-03-money-shift.png        (复杂盘面才生成)
     ├── wechat-cover-21x9-YYYYMMDD.png
     ├── wechat-cover-1x1-YYYYMMDD.png
     └── wechat-cover-pair-preview-YYYYMMDD.png
@@ -60,7 +58,7 @@ A股复盘正文
 
 ## 视觉规则
 
-- 小红书：`1080 x 1440`，5 张起步，必要时扩到 7 张。
+- 小红书：`1080 x 1440`，默认 2 张，最多 3 张。能用 2 页讲清就不要生成第 3 页。
 - 公众号主封面：`2100 x 900`。
 - 公众号方封面：`1080 x 1080`。
 - 默认 Swiss 风格，金融复盘不使用装饰性卡通或复杂插画。
@@ -79,7 +77,7 @@ A股复盘正文
 ## 内容压缩规则
 
 - 标题只放当天最反常的矛盾或关键数字。
-- 小红书每页最多 3-4 条短句。
+- 小红书每页尽量放满信息，但每页最多 3-4 条短句。
 - 不把公众号正文拆成逐段截图。
 - 不写“前排/后排/核心/跟风”黑话，直接写动作：减、等、别追、低开拉回再看。
 
