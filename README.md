@@ -244,6 +244,8 @@ stock-wechat-writer/
     ├── generate_social_cards.py      # Guizang 风格公众号封面 / 小红书图文生成
     ├── judgement_ledger.py           # 历史判断记录与复盘校准
     └── sample_fact_input.json        # 示例输入
+└── third_party/
+    └── guizang-social-card-skill/    # 上游 Guizang 模板代码，AGPL-3.0
 ```
 
 ---

@@ -2,7 +2,15 @@
 
 本项目已经接入 Guizang social card 的工作流思想：固定平台尺寸、Swiss 风格、一个页面一个观点、先提炼文章再生成图片。
 
-为避免把 `guizang-social-card-skill` 的 GPL 模板和素材直接复制进本仓库，当前实现采用本仓库内置脚本：
+当前仓库已经按用户要求复制 `guizang-social-card-skill` 的模板代码到：
+
+```text
+third_party/guizang-social-card-skill/
+```
+
+该目录保留上游 `LICENSE`、`README.md`、`SKILL.md` 和模板/参考文件。上游许可证为 AGPL-3.0，修改、分发或作为网络服务提供时必须遵守对应开源义务。
+
+日常生成仍优先调用本仓库内置脚本：
 
 ```bash
 python scripts/generate_social_cards.py \
@@ -26,6 +34,14 @@ output/social-cards-YYYYMMDD/
     ├── wechat-cover-1x1-YYYYMMDD.png
     └── wechat-cover-pair-preview-YYYYMMDD.png
 ```
+
+脚本会额外生成：
+
+```text
+output/social-cards-YYYYMMDD/guizang-index.html
+```
+
+这份 HTML 使用复制进来的 Guizang Swiss seed template，可用于后续 Playwright 截图或人工微调。
 
 ## 使用场景
 
@@ -69,4 +85,4 @@ A股复盘正文
 
 ## 许可证边界
 
-可以参考 `guizang-social-card-skill` 的平台规格和工作流，但不要复制它的 HTML 模板、WebGL 背景、图片素材或完整 CSS。
+模板代码已经复制进 `third_party/`，因此必须保留 AGPL-3.0 许可证和上游署名。不要把该目录里的模板改成闭源版本，也不要移除许可证说明。

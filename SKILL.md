@@ -30,7 +30,7 @@ Most important current rules:
 
 不是拼数据流水账，是写一个有立场的人对今天市场的理解。
 
-**图文生成：** 本 skill 已内置 Guizang 风格图文生成脚本 `scripts/generate_social_cards.py`，可从复盘 Markdown 直接生成小红书组图和公众号封面对；不依赖 VoxFlow CLI、`voxflow login` 或外部 card skill。
+**图文生成：** 本 skill 已内置 Guizang 风格图文生成脚本 `scripts/generate_social_cards.py`，可从复盘 Markdown 直接生成小红书组图和公众号封面对；不依赖 VoxFlow CLI、`voxflow login` 或外部 card skill。Guizang 上游模板代码已按 AGPL-3.0 复制到 `third_party/guizang-social-card-skill/`，使用和二次分发时必须保留许可证与署名。
 
 ---
 
@@ -568,7 +568,7 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 使用内置脚本生成 21:9 主封面（2100×900）+ 1:1 方封面（1080×1080），同时可生成小红书 3:4 组图。
 规格详见 `references/wechat-cover-guizang.md` 和 `references/social-card-guizang-integration.md`。
 
-适用：日常复盘默认选择。无需安装外部 skill。
+适用：日常复盘默认选择。无需安装外部 skill。脚本会同时输出基于 `third_party/guizang-social-card-skill/assets/template-swiss-card.html` 的 `guizang-index.html`，用于进一步截图或人工微调。
 
 ```bash
 python scripts/generate_social_cards.py \

@@ -20,6 +20,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT / "output"
+GUIZANG_TEMPLATE = ROOT / "third_party" / "guizang-social-card-skill" / "assets" / "template-swiss-card.html"
 
 ACCENTS = {
     "ikb": (0, 87, 255),
@@ -335,6 +336,97 @@ figcaption{{font-size:13px;color:#6b7280;margin-top:10px}}
     )
 
 
+def esc(text: str) -> str:
+    return html.escape(text).replace("\n", "<br>")
+
+
+def guizang_xhs_section(card: Card, article: Article, idx: int) -> str:
+    bullet_html = "\n".join(
+        f"""
+        <div class="card-fill">
+          <div class="row gap-6">
+            <p class="t-meta">{n:02d}</p>
+            <p class="body">{esc(bullet)}</p>
+          </div>
+        </div>"""
+        for n, bullet in enumerate(card.bullets[:4], start=1)
+    )
+    return f"""
+    <section class="poster xhs" id="xhs-{idx:02d}">
+      <div class="content stack gap-9">
+        <div class="chrome-min">
+          <span>{esc(card.kicker)}</span>
+          <span>{esc(fmt_date(article.date))}</span>
+        </div>
+        <div class="stack gap-7">
+          <p class="t-cat">A股复盘 · {idx:02d}/05</p>
+          <h1 class="h-statement">{esc(card.title)}</h1>
+        </div>
+        <div class="stack gap-5">
+          {bullet_html}
+        </div>
+        <div class="grow"></div>
+        <hr class="hr-accent">
+        <p class="t-meta">{esc(card.footer or "内容仅作复盘参考，不构成投资建议")}</p>
+      </div>
+    </section>"""
+
+
+def guizang_wechat_sections(article: Article) -> str:
+    subtitle = "资金在换地方，仓位别太满"
+    for p in article.paragraphs:
+        if "钱" in p or "资金" in p:
+            subtitle = clean_bullet(p, 24)
+            break
+    st = short_title(article.title)
+    date = fmt_date(article.date)
+    return f"""
+    <section class="poster wide" id="wechat-21x9">
+      <div class="content stack gap-9">
+        <div class="chrome-min">
+          <span>A股复盘</span>
+          <span>{esc(date)}</span>
+        </div>
+        <div class="grow"></div>
+        <div class="stack gap-7">
+          <p class="t-cat">市场复盘</p>
+          <h1 class="h-xl">{esc(article.title)}</h1>
+        </div>
+        <hr class="hr-accent">
+        <p class="lead">{esc(subtitle)}</p>
+        <div class="grow"></div>
+        <p class="t-meta">内容仅作复盘参考，不构成投资建议</p>
+      </div>
+    </section>
+
+    <section class="poster square" id="wechat-1x1">
+      <div class="content stack gap-9" style="align-items:center;text-align:center">
+        <div class="grow"></div>
+        <h1 class="h-statement">{esc(st)}</h1>
+        <div class="grow"></div>
+        <p class="t-meta">A股 · {esc(date)}</p>
+      </div>
+    </section>"""
+
+
+def write_guizang_html(out_root: Path, article: Article, cards: list[Card], accent_name: str) -> Path | None:
+    if not GUIZANG_TEMPLATE.exists():
+        return None
+    template = GUIZANG_TEMPLATE.read_text(encoding="utf-8")
+    template = re.sub(
+        r'<html lang="zh-CN" data-accent="[^"]+"',
+        f'<html lang="zh-CN" data-accent="{accent_name}"',
+        template,
+        count=1,
+    )
+    posters = "\n".join(guizang_xhs_section(card, article, idx) for idx, card in enumerate(cards, start=1))
+    posters += "\n" + guizang_wechat_sections(article)
+    rendered = re.sub(r"\s*<!-- POSTERS_HERE -->.*?</main>", "\n" + posters + "\n  </main>", template, flags=re.S)
+    out_path = out_root / "guizang-index.html"
+    out_path.write_text(rendered, encoding="utf-8")
+    return out_path
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate stock recap social cards.")
     parser.add_argument("--article", required=True, type=Path, help="Markdown recap article path")
@@ -352,8 +444,9 @@ def main() -> int:
     cards_dir.mkdir(parents=True, exist_ok=True)
 
     image_paths: list[Path] = []
+    cards = build_cards(article)
     if args.mode in {"all", "xhs"}:
-        for idx, card in enumerate(build_cards(article), start=1):
+        for idx, card in enumerate(cards, start=1):
             out = cards_dir / f"xhs-{idx:02d}-{card.slug}.png"
             render_xhs_card(card, article, idx, accent, out)
             image_paths.append(out)
@@ -363,7 +456,10 @@ def main() -> int:
         image_paths.extend(sorted(cards_dir.glob(f"wechat-cover-*-{article.date}.png")))
 
     write_preview_html(out_root, image_paths)
+    guizang_html = write_guizang_html(out_root, article, cards, accent_name)
     print(f"generated: {out_root}")
+    if guizang_html:
+        print(f"- {guizang_html}")
     for path in image_paths:
         print(f"- {path}")
     return 0
