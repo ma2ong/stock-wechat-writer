@@ -23,6 +23,8 @@ Most important current rules:
 - Major catalysts must not be missed. If an official or high-impact market event drove yesterday's emotion, today's recap must judge whether that emotion continued, weakened, or was falsified.
 - Keep the public article concise. Write the one core contradiction, only the evidence needed to prove it, and delete repeated explanation, broad education, and sector laundry lists.
 - Rule updates must be delivered end to end. When the user asks to summarize lessons or update local rule files, update both the active local skill and this repository, then commit and push to GitHub unless the user explicitly says local-only.
+- Avoid market jargon that ordinary retail readers cannot act on. Terms like "front row/back row" may be used internally, but public articles must translate them into concrete criteria: which stocks can be held, which should be reduced, and why.
+- Avoid repetitive closing labels such as "明天怎么看/明天看什么". The ending should follow the day's market shape and state the next-session bias in plain language, without a fixed section title.
 
 这个 skill 的目标：把当天盘面事实核实清楚，写出一篇有自己判断、中国公众号读者愿意看完并转发的复盘文章。
 
@@ -378,6 +380,8 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 - 数据来源可以放在文末“数据来源”里，正文中不要反复暴露“我从哪里抓的”。正文要呈现结论和证据，不呈现采集过程。
 - 每天开头必须换叙事入口，入口由当天盘面决定。可以从一张板块图、一个反常个股、成交额背离、监管事件、龙虎榜、海外映射、指数背离、亏钱效应、涨停梯队、消息兑现中选择，不要连续两天用同一种开头。
 - 不要连续使用“今天真正重要的是”“真正的主线”“明天看什么”“这才是今天复盘最重要的地方”“不要把市场看窄了”等固定句式。能不用就不用，必须用时一篇最多出现一个。
+- 不要在正文里反复写“前排、后排、核心、跟风”这类黑话。必须写时要翻译成读者能执行的标准，例如“还能放量收红、回落不破位的票可以留；放量下跌、跌破昨天低点、反抽无力的先减”。
+- 不要固定使用“明天怎么看”“明天看什么”作为结尾标题。结尾可以没有小标题，直接用一两句话说明：偏强/偏弱/震荡，持仓怎么处理，空仓是否等待。
 - 如果当天盘面是多分支扩散，文章结构可以写成“盘面证据 → 产业链地图 → 强弱分层 → 次日验证”；如果是单核心矛盾，可以只围绕一个矛盾写短文；如果是退潮日，优先写亏钱效应和回避条件。
 - 不要为了覆盖而把每个强势板块都列一遍。先横向扫描全市场，再选最能解释当天盘面的 2-4 个核心分支；其余只在“降级观察/轮动”里一笔带过。
 - 可以引用昨天、前天或近一周文章里的判断，但必须自然服务今天的盘面。只有当历史判断被验证、被修正、或直接影响今天交易计划时才写进正文；不要为了证明自己正确而硬写。
@@ -404,6 +408,7 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 - 正文以精简为默认。没有必要的背景解释、行业科普、重复判断、完整板块清单全部删除；宁可短，也不要啰嗦。
 - 文章风格跟随盘面：高潮日可以紧张，分歧日要谨慎，普涨日要拆真假，退潮日要直接提示风险
 - 结尾必须给明确的次日偏向和动作建议，不能只写“明天看承接/看三件事”。至少回答三件事：明天偏强还是偏弱；有仓是拿、减还是卖；没仓是追、等分歧还是回避。
+- 结尾不要求固定标题。能用自然段说清楚，就不要写成“明天怎么看”栏目。
 - 参考历史好稿的判断方式，不复制固定结构和固定措辞
 - 可以把 `0514 强趋势还在，但跟风票开始掉队` 当参考例子，但只学它的优点：结论直接、少废话、围绕强趋势、用条件句给交易计划。不要照搬它的格式：不固定“CPO/算电/存储/芯片”，不固定四段结构，不固定“明天怎么做”模板。
 - 每天先判断盘面类型：强趋势分歧、主线切换、情绪退潮、指数护盘、消息兑现、缩量震荡，然后按当天盘面重组文章。
