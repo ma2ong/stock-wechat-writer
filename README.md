@@ -193,6 +193,7 @@
 ```
 正文 Markdown
 → md2wechat-skill 转公众号 HTML
+→ generate_article_images.py 按需生成封面底图 / 文中图
 → generate_social_cards.py 生成公众号封面 / 小红书图文
 → pre_publish_check.py 发稿前检查
 → judgement_ledger.py 记录核心判断（建议）
@@ -235,11 +236,13 @@ stock-wechat-writer/
 │   ├── recap-writing-playbook.md     # 写作手册（开头/主线/明日/CTA）
 │   ├── writing_template.md           # 文章模板 + 发稿前自查
 │   ├── ai-antipatterns.md            # 财经专项 AI 味消除（禁用词+替换）
+│   ├── baoyu-image-backend.md        # Baoyu 生图后端接入
 │   └── cover-design.md               # 封面设计规范（HTML模板+配色）
 └── scripts/
     ├── pre_publish_check.py          # 发稿前自动检查脚本
     ├── check_data_sources.py         # 数据源可用性探测
     ├── fetch_eastmoney_snapshot.py   # 东方财富指数/个股快照采集
+    ├── generate_article_images.py    # Baoyu 封面底图 / 文中图生图调度
     ├── generate_fact_card.py         # 事实卡片生成辅助
     ├── generate_social_cards.py      # Guizang 风格公众号封面 / 小红书图文生成
     ├── judgement_ledger.py           # 历史判断记录与复盘校准

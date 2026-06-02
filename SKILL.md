@@ -32,6 +32,8 @@ Most important current rules:
 
 **图文生成：** 本 skill 已内置 Guizang 风格图文生成脚本 `scripts/generate_social_cards.py`，可从复盘 Markdown 直接生成小红书组图和公众号封面对；不依赖 VoxFlow CLI、`voxflow login` 或外部 card skill。Guizang 上游模板代码已按 AGPL-3.0 复制到 `third_party/guizang-social-card-skill/`，使用和二次分发时必须保留许可证与署名。
 
+**生图后端：** 封面底图和文中图使用 `scripts/generate_article_images.py` 调度 Baoyu 系列后端。`baoyu-image-gen` 已迁移到 `baoyu-imagine`，因此优先调用 `baoyu-imagine`，找不到时兼容旧 `baoyu-image-gen`。详见 `references/baoyu-image-backend.md`。
+
 ---
 
 ## 触发任务
@@ -556,7 +558,7 @@ yf.download(["^HSI", "^IXIC", "BABA"], period="1d")
 |----------|------|
 | 封面图 | HTML 模板 → Playwright 截图（900×500px）|
 | 数据对比图、热力图 | HTML 图表 → Playwright 截图 |
-| 行情氛围图 | image-generator skill |
+| 行情氛围图 / 文章插画 | `generate_article_images.py` → Baoyu Imagine / baoyu-image-gen |
 | 截图说明数据 | 直接截 akshare 输出 |
 
 原则：封面必须有，正文配图按需加，不强制每篇都有。
@@ -605,9 +607,33 @@ output/social-cards-YYYYMMDD/output/
 | 主线切换 | 慌乱奔跑 | 在两块屏幕之间来回跑 |
 | AI/科技强势 | 热血冲劲 | 骑火箭冲天，科技感元素 |
 
-调用 `image-generator` skill，使用 `references/cover-design.md` 第二章对应提示词，指定 `size: 1792×1024`（16:9横版）。
+调用 Baoyu 生图后端：
 
-输出：`output/stock_review_YYYYMMDD_illus.png`
+```bash
+python scripts/generate_article_images.py \
+  --article output/stock_review_YYYYMMDD.md \
+  --date YYYYMMDD \
+  --mode cover
+```
+
+如果本机没有 Baoyu API 配置，脚本会先生成 prompt 和 batch 文件：
+
+```text
+output/article-images-YYYYMMDD/prompts/cover.md
+output/article-images-YYYYMMDD/baoyu-batch.json
+```
+
+成功生成后输出：`output/article-images-YYYYMMDD/cover-16x9.png`
+
+文中图按需生成，不强制每篇都有：
+
+```bash
+python scripts/generate_article_images.py \
+  --article output/stock_review_YYYYMMDD.md \
+  --date YYYYMMDD \
+  --mode inline \
+  --inline-count 1
+```
 
 **Step 2：选择封面方案**
 
