@@ -29,8 +29,11 @@
 | 数据源 | 用途 | 工具 |
 |--------|------|------|
 | 数据源探测 | 检查当前环境可用的采集工具 | `check_data_sources.py` |
+| 统一行情入口 | 调用 AKShare / efinance / BaoStock 获取指数快照、个股历史 K 线 | `fetch_market_data.py` |
 | 东方财富快照 | 指数、个股涨跌幅、成交额、换手率、资金流模型 | `fetch_eastmoney_snapshot.py` |
 | akshare | 指数、成交额、板块排行、宽度 | Python |
+| efinance | 个股实时/历史行情兜底，东方财富公开行情封装 | Python |
+| BaoStock | 历史 K 线、复权、指数成分，适合盘后校准和回测 | Python |
 | mootdx + 腾讯 | 日线、分时、实时行情、F10增强 | 可选依赖 / MCP / 网页 |
 | 东方财富 + i问财 | 研报、条件筛选、概念归属、候选池 | 东方财富 / 同花顺 / pywencai |
 | 百度PAE + 同花顺 | 热点题材、舆情热度、涨停梯队 | opencli / MCP / 网页 |
@@ -241,6 +244,7 @@ stock-wechat-writer/
 └── scripts/
     ├── pre_publish_check.py          # 发稿前自动检查脚本
     ├── check_data_sources.py         # 数据源可用性探测
+    ├── fetch_market_data.py          # AKShare / efinance / BaoStock 统一行情入口
     ├── fetch_eastmoney_snapshot.py   # 东方财富指数/个股快照采集
     ├── generate_article_images.py    # Baoyu 封面底图 / 文中图生图调度
     ├── generate_fact_card.py         # 事实卡片生成辅助

@@ -9,6 +9,8 @@ from datetime import datetime
 
 PYTHON_MODULES = {
     "akshare": "行情、板块、资金、新闻的通用数据源",
+    "efinance": "东方财富等公开源行情封装，适合个股历史行情和实时行情兜底",
+    "baostock": "历史 K 线、复权、指数成分等量化数据源，适合盘后校准和回测",
     "mootdx": "通达信行情、日线、分时、F10 等增强源",
     "pywencai": "同花顺 i问财 条件检索增强源",
     "requests": "网页/API 抓取基础库",

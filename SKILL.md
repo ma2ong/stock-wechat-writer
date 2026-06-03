@@ -68,7 +68,7 @@ Most important current rules:
 先使用当前环境能直接调用的工具，不要只靠模型记忆或二手总结。
 
 优先级：
-1. 本地脚本 / `daily_stock_analysis` / 已有行情采集脚本，例如 `scripts/check_data_sources.py`、`scripts/fetch_eastmoney_snapshot.py`。
+1. 本地脚本 / `daily_stock_analysis` / 已有行情采集脚本，例如 `scripts/check_data_sources.py`、`scripts/fetch_market_data.py`、`scripts/fetch_eastmoney_snapshot.py`。
 2. MCP / 浏览器 / 官方网页，用于交易所公告、公司公告、东方财富、同花顺、Wind/万得页面核对。
 3. `opencli`，用于财联社、雪球、微博、东方财富/同花顺相关搜索。
 4. Web 搜索作为 fallback，优先交易所、公司公告、东方财富、同花顺、证券时报、财联社、Wind/万得口径。
@@ -79,13 +79,16 @@ Most important current rules:
 
 ```bash
 python scripts/check_data_sources.py
+python scripts/fetch_market_data.py --probe
+python scripts/fetch_market_data.py --indices
+python scripts/fetch_market_data.py --history 600519 --start 20260501 --end 20260603
 ```
 
 信息源按数据层使用：
 
 | 数据层 | 内容 | 可用来源 |
 |---|---|---|
-| 行情 | 日线、分时线、实时行情 | akshare、东方财富快照、mootdx、腾讯行情、同花顺/Wind |
+| 行情 | 日线、分时线、实时行情 | AKShare、东方财富快照、efinance、BaoStock、mootdx、腾讯行情、同花顺/Wind |
 | 研报 | 券商研报、行业分析 | 东方财富研报、i问财/同花顺、Wind/万得、券商官网 |
 | 信号 | 热点题材、北向资金、龙虎榜、解禁、行业轮动 | 东方财富、同花顺、Wind、百度PAE/搜索、opencli |
 | 新闻 | 财经新闻、公告摘要 | 财联社、证券时报、akshare 新闻、东方财富、同花顺 |
@@ -113,6 +116,9 @@ df_sector = ak.stock_board_industry_summary_ths()
 关键字段：指数收盘点位、涨跌幅、两市成交额、上涨/下跌家数、板块涨跌排行。
 
 可选增强：
+- `scripts/fetch_market_data.py`：统一探测和调用 AKShare、efinance、BaoStock。写作前优先用它取指数快照和个股近 3-5 日走势。
+- `efinance`：东方财富等公开源行情封装，适合个股历史行情和实时行情兜底。只负责行情事实，不解释上涨原因。
+- `BaoStock`：适合历史 K 线、复权、指数成分、盘后校准和历史判断回看。不要用它替代当日新闻、资金盘口和交易情绪。
 - `mootdx + 腾讯`：补充日线、分时、实时行情、F10。若当前环境没有 `mootdx`，改用 akshare、东方财富快照或 MCP/网页。
 - 腾讯行情只用于价格快照交叉验证，不能写成资金、机构或龙虎榜证据。
 
