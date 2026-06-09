@@ -2,3 +2,5 @@ __pycache__/
 *.pyc
 output/
 node_modules/
+scripts/wechat_config.json
+scripts/.wechat_token_cache.json

@@ -1,0 +1,5 @@
+{
+  "appid": "你的公众号AppID",
+  "appsecret": "你的公众号AppSecret",
+  "author": "作者名（可选）"
+}
