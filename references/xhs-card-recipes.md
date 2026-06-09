@@ -1,8 +1,11 @@
 # Stock Recap XHS Card Recipes
 
-Standard 7-page Xiaohongshu carousel for A股 daily recap.
+Compact 2-3 page Xiaohongshu carousel for A股 daily recap.
 Invoke from Step 8.5 of the stock-wechat-writer workflow.
 Input data comes from the "事实卡片" produced in Step 2e of the same workflow.
+
+Current default: 2 pages. Only use page 3 when the content cannot be cleanly
+covered in 2 pages. Do not generate 5-7 pages for normal daily recaps.
 
 ## Style: Swiss International
 
@@ -21,7 +24,47 @@ Pick one accent per card set based on the day's market character:
 
 Set accent on `<html data-accent="...">` and never mix two accents in one set.
 
-## 7-Page Template
+## Compact Template
+
+### P1 — Cover + Core Conflict
+
+Put the day's strongest contradiction or key number in the title.
+
+Required elements:
+- `.chrome-min`: "A股复盘" / "YYYY.MM.DD"
+- Big title: the article title or compressed hook
+- 2-3 short bullets:
+  - market contradiction
+  - money-flow pressure
+  - one named example if needed
+
+### P2 — Trade Plan
+
+Make this page useful by itself.
+
+Required elements:
+- `.chrome-min`: "交易动作" / "YYYY.MM.DD"
+- Big title: action phrase, not a broad summary
+- 3-4 short bullets:
+  - what to do with the old main line
+  - what to do with the new direction
+  - whether empty hands should wait or act
+
+### P3 — Money Shift (optional)
+
+Only generate when P1/P2 are too crowded.
+
+Use for complex days with more than one real money-flow destination.
+
+Required elements:
+- one sentence on where money left
+- 2-3 bullets on where money went
+- no full sector list
+
+## Legacy 7-Page Template
+
+The older 7-page template below is kept only as a fallback for long educational
+posts. It is not the default for daily stock recaps.
 
 ### P1 — Cover (S01 Accent Cover)
 

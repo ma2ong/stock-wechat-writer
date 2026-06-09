@@ -12,15 +12,24 @@
 
 ## 一、封面生成方式（插画优先）
 
-### 方式 A：AI 插画生成（主推）
+### 方式 A：Baoyu 生图后端（主推）
 
-用 `image-generator` skill 生成情绪插画，输出尺寸 `1792×1024`（16:9 横版）。
+用 `scripts/generate_article_images.py` 调度 Baoyu Imagine / baoyu-image-gen 生成情绪插画，输出 16:9 横版。
 
 插画根据当日行情情绪选择对应提示词（见第二章），不要在图里放任何数字和文字——文字叠加在后续 HTML 步骤完成。
 
+```bash
+python scripts/generate_article_images.py \
+  --article output/stock_review_YYYYMMDD.md \
+  --date YYYYMMDD \
+  --mode cover
+```
+
+本机 Baoyu API 未配置时，脚本只生成 prompt 与 `baoyu-batch.json`，不阻塞公众号发稿。
+
 ### 方式 B：插画背景 + 文字叠加 HTML（推荐完整流程）
 
-1. 用 image-generator 生成插画 → 保存为 `output/stock_review_YYYYMMDD_illus.png`
+1. 用 Baoyu 生图后端生成插画 → 保存为 `output/article-images-YYYYMMDD/cover-16x9.png`
 2. 用 md2wechat-skill 或 Playwright 把插画上传到微信素材库 → 获取 `wechat_url`
 3. 把插画 url 作为 `<img>` 背景嵌入封面 HTML，叠加标题文字
 4. Playwright 截图 900×500 → `output/stock_review_YYYYMMDD_cover.png`

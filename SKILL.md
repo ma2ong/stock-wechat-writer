@@ -23,12 +23,16 @@ Most important current rules:
 - Major catalysts must not be missed. If an official or high-impact market event drove yesterday's emotion, today's recap must judge whether that emotion continued, weakened, or was falsified.
 - Keep the public article concise. Write the one core contradiction, only the evidence needed to prove it, and delete repeated explanation, broad education, and sector laundry lists.
 - Rule updates must be delivered end to end. When the user asks to summarize lessons or update local rule files, update both the active local skill and this repository, then commit and push to GitHub unless the user explicitly says local-only.
+- Avoid market jargon that ordinary retail readers cannot act on. Terms like "front row/back row" may be used internally, but public articles must translate them into concrete criteria: which stocks can be held, which should be reduced, and why.
+- Avoid repetitive closing labels such as "明天怎么看/明天看什么". The ending should follow the day's market shape and state the next-session bias in plain language, without a fixed section title.
 
 这个 skill 的目标：把当天盘面事实核实清楚，写出一篇有自己判断、中国公众号读者愿意看完并转发的复盘文章。
 
 不是拼数据流水账，是写一个有立场的人对今天市场的理解。
 
-**可选依赖：** 如需生成小红书图文组图或 Guizang 风格封面，须安装 `guizang-social-card-skill`（`~/.claude/skills/guizang-social-card-skill/`）。
+**图文生成：** 本 skill 已内置 Guizang 风格图文生成脚本 `scripts/generate_social_cards.py`，可从复盘 Markdown 直接生成小红书组图和公众号封面对；不依赖 VoxFlow CLI、`voxflow login` 或外部 card skill。Guizang 上游模板代码已按 AGPL-3.0 复制到 `third_party/guizang-social-card-skill/`，使用和二次分发时必须保留许可证与署名。
+
+**生图后端：** 封面底图和文中图使用 `scripts/generate_article_images.py` 调度 Baoyu 系列后端。`baoyu-image-gen` 已迁移到 `baoyu-imagine`，因此优先调用 `baoyu-imagine`，找不到时兼容旧 `baoyu-image-gen`。详见 `references/baoyu-image-backend.md`。
 
 ---
 
@@ -74,7 +78,7 @@ python scripts/verify_prediction.py
 先使用当前环境能直接调用的工具，不要只靠模型记忆或二手总结。
 
 优先级：
-1. 本地脚本 / `daily_stock_analysis` / 已有行情采集脚本，例如 `scripts/check_data_sources.py`、`scripts/fetch_eastmoney_snapshot.py`。
+1. 本地脚本 / `daily_stock_analysis` / 已有行情采集脚本，例如 `scripts/check_data_sources.py`、`scripts/fetch_market_data.py`、`scripts/fetch_eastmoney_snapshot.py`。
 2. MCP / 浏览器 / 官方网页，用于交易所公告、公司公告、东方财富、同花顺、Wind/万得页面核对。
 3. `opencli`，用于财联社、雪球、微博、东方财富/同花顺相关搜索。
 4. Web 搜索作为 fallback，优先交易所、公司公告、东方财富、同花顺、证券时报、财联社、Wind/万得口径。
@@ -85,13 +89,16 @@ python scripts/verify_prediction.py
 
 ```bash
 python scripts/check_data_sources.py
+python scripts/fetch_market_data.py --probe
+python scripts/fetch_market_data.py --indices
+python scripts/fetch_market_data.py --history 600519 --start 20260501 --end 20260603
 ```
 
 信息源按数据层使用：
 
 | 数据层 | 内容 | 可用来源 |
 |---|---|---|
-| 行情 | 日线、分时线、实时行情 | akshare、东方财富快照、mootdx、腾讯行情、同花顺/Wind |
+| 行情 | 日线、分时线、实时行情 | AKShare、东方财富快照、efinance、BaoStock、mootdx、腾讯行情、同花顺/Wind |
 | 研报 | 券商研报、行业分析 | 东方财富研报、i问财/同花顺、Wind/万得、券商官网 |
 | 信号 | 热点题材、北向资金、龙虎榜、解禁、行业轮动 | 东方财富、同花顺、Wind、百度PAE/搜索、opencli |
 | 新闻 | 财经新闻、公告摘要 | 财联社、证券时报、akshare 新闻、东方财富、同花顺 |
@@ -119,6 +126,9 @@ df_sector = ak.stock_board_industry_summary_ths()
 关键字段：指数收盘点位、涨跌幅、两市成交额、上涨/下跌家数、板块涨跌排行。
 
 可选增强：
+- `scripts/fetch_market_data.py`：统一探测和调用 AKShare、efinance、BaoStock。写作前优先用它取指数快照和个股近 3-5 日走势。
+- `efinance`：东方财富等公开源行情封装，适合个股历史行情和实时行情兜底。只负责行情事实，不解释上涨原因。
+- `BaoStock`：适合历史 K 线、复权、指数成分、盘后校准和历史判断回看。不要用它替代当日新闻、资金盘口和交易情绪。
 - `mootdx + 腾讯`：补充日线、分时、实时行情、F10。若当前环境没有 `mootdx`，改用 akshare、东方财富快照或 MCP/网页。
 - 腾讯行情只用于价格快照交叉验证，不能写成资金、机构或龙虎榜证据。
 
@@ -436,6 +446,8 @@ python scripts/stock_selector.py --top 5
 - 数据来源可以放在文末“数据来源”里，正文中不要反复暴露“我从哪里抓的”。正文要呈现结论和证据，不呈现采集过程。
 - 每天开头必须换叙事入口，入口由当天盘面决定。可以从一张板块图、一个反常个股、成交额背离、监管事件、龙虎榜、海外映射、指数背离、亏钱效应、涨停梯队、消息兑现中选择，不要连续两天用同一种开头。
 - 不要连续使用“今天真正重要的是”“真正的主线”“明天看什么”“这才是今天复盘最重要的地方”“不要把市场看窄了”等固定句式。能不用就不用，必须用时一篇最多出现一个。
+- 不要在正文里反复写“前排、后排、核心、跟风”这类黑话。必须写时要翻译成读者能执行的标准，例如“还能放量收红、回落不破位的票可以留；放量下跌、跌破昨天低点、反抽无力的先减”。
+- 不要固定使用“明天怎么看”“明天看什么”作为结尾标题。结尾可以没有小标题，直接用一两句话说明：偏强/偏弱/震荡，持仓怎么处理，空仓是否等待。
 - 如果当天盘面是多分支扩散，文章结构可以写成“盘面证据 → 产业链地图 → 强弱分层 → 次日验证”；如果是单核心矛盾，可以只围绕一个矛盾写短文；如果是退潮日，优先写亏钱效应和回避条件。
 - 不要为了覆盖而把每个强势板块都列一遍。先横向扫描全市场，再选最能解释当天盘面的 2-4 个核心分支；其余只在“降级观察/轮动”里一笔带过。
 - 可以引用昨天、前天或近一周文章里的判断，但必须自然服务今天的盘面。只有当历史判断被验证、被修正、或直接影响今天交易计划时才写进正文；不要为了证明自己正确而硬写。
@@ -463,10 +475,20 @@ python scripts/stock_selector.py --top 5
 - **长度硬规则（完读率优先）：正文目标 800–1500 字。** 公域推荐是信息流场景，完读率是核心加推信号，超过 1500 字完读率明显下降。普通复盘日控制在 800–1200 字；只有当天有重大矛盾值得展开时才到 1500 字，不写 2000+ 字长文。
 - 文章风格跟随盘面：高潮日可以紧张，分歧日要谨慎，普涨日要拆真假，退潮日要直接提示风险
 - 结尾必须给明确的次日偏向和动作建议，不能只写“明天看承接/看三件事”。至少回答三件事：明天偏强还是偏弱；强势方向是否仍是主战场；哪些位置/板块要注意风险。**注意合规：结尾写「市场整体偏向 + 风险提示」，不写「有仓拿/减/卖、没仓追/等」这类个人操作指令（见 Step 6.5 与 `references/wechat-compliance-rules.md`）。**
+- 结尾不要求固定标题。能用自然段说清楚，就不要写成“明天怎么看”栏目。
 - 参考历史好稿的判断方式，不复制固定结构和固定措辞
 - 可以把 `0514 强趋势还在，但跟风票开始掉队` 当参考例子，但只学它的优点：结论直接、少废话、围绕强趋势、用条件句给交易计划。不要照搬它的格式：不固定“CPO/算电/存储/芯片”，不固定四段结构，不固定“明天怎么做”模板。
+- 也可以把 `0601 科创50跌5%，120只股票涨停` 作为短文风格参考：只抓一个核心矛盾，用短句写清资金换向，少写解释，少列板块，最后直接给持仓/空仓动作。不要扩写成报告，不要为了完整性把所有涨跌方向都写进去。
 - 每天先判断盘面类型：强趋势分歧、主线切换、情绪退潮、指数护盘、消息兑现、缩量震荡，然后按当天盘面重组文章。
 - 如果当天只有一个核心矛盾，就只写一个；如果当天多主线分歧，再拆 2-4 个方向。没有好机会时，文章可以短，重点写风险和等待条件。
+
+**0601 风格锁定：**
+- 标题可以直接用当天最反常的数字或矛盾，例如“科创50跌5%，120只股票涨停”。
+- 正文优先 600-1000 字；没有必要的背景、行业科普、板块清单全部删掉。
+- 每段只说一件事，短句为主，读起来像当天跟盘后的口语判断。
+- 只选 1 个核心矛盾，最多展开 2 条资金去向；其他上涨板块不写。
+- 操作建议翻译成普通股民能执行的话：放量破位就减，高开急拉不追，低开能拉回再看，空仓等市场淘汰。
+- 结尾自然收束，不写固定栏目，不重复“看承接/看核心/看分歧”。
 
 ---
 
@@ -634,7 +656,7 @@ python scripts/stock_selector.py --top 5
 |----------|------|
 | 封面图 | HTML 模板 → Playwright 截图（900×500px）|
 | 数据对比图、热力图 | HTML 图表 → Playwright 截图 |
-| 行情氛围图 | image-generator skill |
+| 行情氛围图 / 文章插画 | `generate_article_images.py` → Baoyu Imagine / baoyu-image-gen |
 | 截图说明数据 | 直接截 akshare 输出 |
 
 原则：封面必须有，正文配图按需加，不强制每篇都有。
@@ -643,10 +665,26 @@ python scripts/stock_selector.py --top 5
 
 **方式 A：Guizang 风格封面对（推荐）**
 
-依赖 `guizang-social-card-skill`。生成 21:9 主封面（2100×900）+ 1:1 方封面（1080×1080）。
-规格详见 `references/wechat-cover-guizang.md`。
+使用内置脚本生成 21:9 主封面（2100×900）+ 1:1 方封面（1080×1080），同时可生成小红书 3:4 组图。
+规格详见 `references/wechat-cover-guizang.md` 和 `references/social-card-guizang-integration.md`。
 
-适用：有 guizang-social-card-skill 时的默认选择。
+适用：日常复盘默认选择。无需安装外部 skill。脚本会同时输出基于 `third_party/guizang-social-card-skill/assets/template-swiss-card.html` 的 `guizang-index.html`，用于进一步截图或人工微调。
+
+```bash
+python scripts/generate_social_cards.py \
+  --article output/stock_review_YYYYMMDD.md \
+  --date YYYYMMDD \
+  --mode wechat
+```
+
+输出：
+
+```text
+output/social-cards-YYYYMMDD/output/
+├── wechat-cover-21x9-YYYYMMDD.png
+├── wechat-cover-1x1-YYYYMMDD.png
+└── wechat-cover-pair-preview-YYYYMMDD.png
+```
 
 **方式 C：大数字冲突封面（公域信息流 CTR 优先，推荐用于冲推荐流量）**
 
@@ -683,9 +721,33 @@ python scripts/stock_selector.py --top 5
 | 主线切换 | 慌乱奔跑 | 在两块屏幕之间来回跑 |
 | AI/科技强势 | 热血冲劲 | 骑火箭冲天，科技感元素 |
 
-调用 `image-generator` skill，使用 `references/cover-design.md` 第二章对应提示词，指定 `size: 1792×1024`（16:9横版）。
+调用 Baoyu 生图后端：
 
-输出：`output/stock_review_YYYYMMDD_illus.png`
+```bash
+python scripts/generate_article_images.py \
+  --article output/stock_review_YYYYMMDD.md \
+  --date YYYYMMDD \
+  --mode cover
+```
+
+如果本机没有 Baoyu API 配置，脚本会先生成 prompt 和 batch 文件：
+
+```text
+output/article-images-YYYYMMDD/prompts/cover.md
+output/article-images-YYYYMMDD/baoyu-batch.json
+```
+
+成功生成后输出：`output/article-images-YYYYMMDD/cover-16x9.png`
+
+文中图按需生成，不强制每篇都有：
+
+```bash
+python scripts/generate_article_images.py \
+  --article output/stock_review_YYYYMMDD.md \
+  --date YYYYMMDD \
+  --mode inline \
+  --inline-count 1
+```
 
 **Step 2：选择封面方案**
 
@@ -729,7 +791,7 @@ output/
 仅当用户主动要求 XHS/小红书同步时执行。不强制每篇都做。
 
 **触发条件：** Step 7 传播力评估通过后，询问一次：
-> "需要同步发小红书吗？我可以把这篇复盘转成图文组图（7 张），IKB 蓝 Swiss 风格。"
+> "需要同步发小红书吗？我可以把这篇复盘转成 2-3 张图文卡片，IKB 蓝 Swiss 风格。"
 
 用户说是 → 执行。用户跳过 → 直接进 Step 9。不重复问。
 
@@ -744,9 +806,17 @@ output/
    - 明日三种仓位操作指引
    - 三个复盘结论
 
-2. 按 `references/xhs-card-recipes.md` 规格，调用 `guizang-social-card-skill` 生成 HTML + 渲染 PNG。
+2. 按 `references/xhs-card-recipes.md` 和 `references/social-card-guizang-integration.md` 规格，调用内置脚本生成 PNG。
 
-3. 输出到 `output/xhs-cards-YYYYMMDD/output/`，共 6-7 张图。
+```bash
+python scripts/generate_social_cards.py \
+  --article output/stock_review_YYYYMMDD.md \
+  --date YYYYMMDD \
+  --mode xhs \
+  --xhs-pages auto
+```
+
+3. 输出到 `output/social-cards-YYYYMMDD/output/`，默认 2 张，最多 3 张。能用 2 页讲清就不生成第 3 页；只有文章复杂、资金去向和交易动作放不下时才自动加第 3 页。
 
 4. 渲染后展示给用户，问：先你自己看，还是我自动核查一遍？
 
@@ -762,16 +832,12 @@ output/
 
 ```
 output/
-└── xhs-cards-YYYYMMDD/
+└── social-cards-YYYYMMDD/
     ├── index.html
     └── output/
         ├── xhs-01-cover.png
-        ├── xhs-02-index-data.png
-        ├── xhs-03-sector-strength.png
-        ├── xhs-04-catalyst-check.png   (无主要催化剂时省略)
-        ├── xhs-05-mainline-matrix.png
-        ├── xhs-06-tomorrow-plan.png
-        └── xhs-07-conclusion.png
+        ├── xhs-02-trade-plan.png
+        └── xhs-03-money-shift.png   (复杂盘面才生成)
 ```
 
 ---

@@ -12,7 +12,7 @@
 
 可用能力优先级：
 
-1. **本地脚本/API**：`scripts/check_data_sources.py`、`scripts/fetch_eastmoney_snapshot.py`、`scripts/pre_publish_check.py`、`daily_stock_analysis`、已有行情采集脚本。
+1. **本地脚本/API**：`scripts/check_data_sources.py`、`scripts/fetch_market_data.py`、`scripts/fetch_eastmoney_snapshot.py`、`scripts/pre_publish_check.py`、`daily_stock_analysis`、已有行情采集脚本。
 2. **MCP / 插件**：如果环境暴露了财经、浏览器、网页抓取、数据库或文件 MCP，优先用它读取官方网页、行情页、公告页。
 3. **opencli**：用于财联社、雪球、微博、东方财富/同花顺相关页面的实时搜索和热议采集。
 4. **Web 搜索**：只作为 fallback，优先交易所、公司公告、东方财富、同花顺、证券时报、财联社、Wind/万得口径。
@@ -23,15 +23,20 @@
 
 ```powershell
 python scripts\check_data_sources.py
+python scripts\fetch_market_data.py --probe
+python scripts\fetch_market_data.py --indices
+python scripts\fetch_market_data.py --history 600519 --start 20260501 --end 20260603
 ```
 
 探测结果只决定“用什么工具取数”，不改变事实核对标准。某个包不可用时，改走 MCP、opencli、网页或手工来源，不允许用模型记忆替代。
+
+`fetch_market_data.py` 是统一行情入口：优先探测 AKShare、efinance、BaoStock 是否可用，再按任务取指数快照或个股历史 K 线。它返回结构化 JSON，失败时返回 `ok=false`，不能把失败源当成事实来源。
 
 ### 数据层分工表
 
 | 数据层 | 内容 | 首选来源 | 备用/增强来源 | 用法边界 |
 |---|---|---|---|---|
-| 行情 | 日线、分钟线、实时行情 | akshare、东方财富快照 | `mootdx`、腾讯行情、同花顺/Wind | 用于价格、涨跌幅、成交额、换手率，不解释原因 |
+| 行情 | 日线、分钟线、实时行情 | AKShare、东方财富快照 | efinance、BaoStock、`mootdx`、腾讯行情、同花顺/Wind | 用于价格、涨跌幅、成交额、换手率，不解释原因 |
 | 研报 | 券商研报、行业分析 | 东方财富研报、Wind/万得 | i问财/同花顺、券商官网 | 只能做产业逻辑参考，不能替代当日盘面 |
 | 信号 | 热点题材、北向资金、龙虎榜、解禁、行业轮动 | 东方财富/同花顺/Wind、交易所 | 百度PAE/搜索、同花顺热榜、opencli | 资金/席位必须写清口径，舆情只当线索 |
 | 新闻 | 财经新闻、公告摘要 | 财联社、证券时报、交易所/公司公告 | akshare 新闻、东方财富、同花顺 | 新闻解释盘面，不能覆盖盘面 |
@@ -64,6 +69,32 @@ ak.stock_market_pe_lg()
 # 北向资金（沪股通+深股通）
 ak.stock_em_hsgt_hist(symbol="北上资金")
 ```
+
+**efinance（个股行情兜底）**
+
+适合补充个股实时行情和历史行情，尤其用于 AKShare 临时不稳定时交叉验证个股涨跌幅、成交额、近几日走势。
+
+```powershell
+python scripts\fetch_market_data.py --history 600519 --provider efinance --start 20260501 --end 20260603
+```
+
+使用规则：
+- 只用于行情事实，不解释资金意图、机构态度和上涨原因。
+- 若 efinance 与 AKShare/东方财富快照差异明显，必须回到东方财富、同花顺或 Wind/万得网页核对。
+- 不把“能取到数据”写成“主线确认”。主线还要看成交额、涨停梯队、情绪和持续性。
+
+**BaoStock（历史校准和回测）**
+
+适合历史 K 线、复权口径、指数成分、盘后校准和历史判断回看。它更适合回答“前几天判断是否被验证”，不适合单独判断当天情绪。
+
+```powershell
+python scripts\fetch_market_data.py --history 600519 --provider baostock --start 20260501 --end 20260603
+```
+
+使用规则：
+- 用于近 3-5 日走势、均线位置、前文观点回看、策略胜率记录。
+- 不用于替代当日新闻催化、盘口承接、龙虎榜、资金流和板块情绪。
+- 如果 BaoStock 无法登录或返回空数据，写作流程继续，但必须改用 AKShare、efinance、东方财富或网页核对。
 
 **mootdx + 腾讯（可选增强源）**
 
@@ -241,7 +272,10 @@ opencli zhihu search "A股 今日" --limit 10
 | 数据源 | 负责 | 不负责 |
 |--------|------|--------|
 | check_data_sources.py | 探测当前环境可用的数据源工具 | 代替取数和核验 |
+| fetch_market_data.py | 统一调用 AKShare / efinance / BaoStock，输出指数快照和历史 K 线 JSON | 自动解释行情原因或直接生成买卖建议 |
 | akshare | 指数点位、涨跌幅、成交额、板块排行、宽度 | 为什么涨 |
+| efinance | 个股实时/历史行情兜底、东方财富公开行情封装 | 资金意图、机构确认、主线判断 |
+| BaoStock | 历史 K 线、复权、指数成分、回测校准 | 当日情绪、新闻催化、盘口承接 |
 | mootdx | 日线、分时、F10 增强源 | 单独决定主线或买点 |
 | 腾讯行情 | 实时行情快照、价格交叉验证 | 资金、机构、龙虎榜解释 |
 | 东方财富 | 个股/指数快照、成交额、换手率、资金流模型、龙虎榜页面 | 把主力资金等同外资/机构 |
@@ -259,8 +293,8 @@ opencli zhihu search "A股 今日" --limit 10
 ## 三、数据取用顺序
 
 ```
-Step 0  check_data_sources.py → 探测 akshare / mootdx / pywencai / opencli 是否可用
-Step 1  akshare / mootdx / 腾讯 / 东方财富快照 → 指数、成交额、板块排行、宽度、个股快照
+Step 0  check_data_sources.py + fetch_market_data.py --probe → 探测 akshare / efinance / baostock / mootdx / pywencai / opencli 是否可用
+Step 1  fetch_market_data.py / akshare / efinance / baostock / mootdx / 腾讯 / 东方财富快照 → 指数、成交额、板块排行、宽度、个股快照、近几日走势
 Step 2  东方财富 / 同花顺 / Wind / i问财 → 核对代码、简称、板块身份、龙虎榜、资金口径、候选池
 Step 3  opencli cailian / 财联社 / 证券时报 → 当日热门新闻，找主线催化
 Step 4  百度PAE/搜索 / 雪球 / 微博 / 同花顺热榜 → 验证情绪和题材热度

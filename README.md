@@ -29,8 +29,11 @@
 | 数据源 | 用途 | 工具 |
 |--------|------|------|
 | 数据源探测 | 检查当前环境可用的采集工具 | `check_data_sources.py` |
+| 统一行情入口 | 调用 AKShare / efinance / BaoStock 获取指数快照、个股历史 K 线 | `fetch_market_data.py` |
 | 东方财富快照 | 指数、个股涨跌幅、成交额、换手率、资金流模型 | `fetch_eastmoney_snapshot.py` |
 | akshare | 指数、成交额、板块排行、宽度 | Python |
+| efinance | 个股实时/历史行情兜底，东方财富公开行情封装 | Python |
+| BaoStock | 历史 K 线、复权、指数成分，适合盘后校准和回测 | Python |
 | mootdx + 腾讯 | 日线、分时、实时行情、F10增强 | 可选依赖 / MCP / 网页 |
 | 东方财富 + i问财 | 研报、条件筛选、概念归属、候选池 | 东方财富 / 同花顺 / pywencai |
 | 百度PAE + 同花顺 | 热点题材、舆情热度、涨停梯队 | opencli / MCP / 网页 |
@@ -98,25 +101,11 @@
 - 消息兑现：写消息预期、价格背离、资金提前定价
 - 缩量震荡：文章可以短，重点写等待条件
 
-参考历史好稿的判断方式，不复制固定标题、固定章节和固定措辞。
-
-`0514 强趋势还在，但跟风票开始掉队` 可以作为参考例子，但只能学它的优点：
-
-- 结论直接、少废话
-- 围绕强趋势，不写无关方向
-- 用条件句给交易计划
-
-不能照搬它的格式：
-
-- 不固定“CPO/算电/存储/芯片”
-- 不固定四段结构
-- 不固定“明天怎么做”模板
-
 如果当天只有一个核心矛盾，就只写一个；如果当天多主线分歧，再拆 2-4 个方向。没有好机会时，文章可以短，重点写风险和等待条件。
 
 ### 2d. 深度分析硬门槛
 
-任何“可关注/可低吸/可试错”的方向，都必须同时检查：
+任何"可关注/可低吸/可试错"的方向，都必须同时检查：
 
 | 维度 | 要看什么 |
 |------|---------|
@@ -207,7 +196,8 @@
 ```
 正文 Markdown
 → md2wechat-skill 转公众号 HTML
-→ 封面 PNG（Playwright 截图）
+→ generate_article_images.py 按需生成封面底图 / 文中图
+→ generate_social_cards.py 生成公众号封面 / 小红书图文
 → pre_publish_check.py 发稿前检查
 → judgement_ledger.py 记录核心判断（建议）
 → push_stock_review_draft.py 推送草稿箱
@@ -240,6 +230,7 @@ stock-wechat-writer/
 ├── SKILL.md                          # 主流程（9个Step）
 ├── README.md
 ├── references/
+│   ├── recap-quality-lessons.md     # 写作纠偏记录 + 定稿例文（必读）
 │   ├── market-verification.md        # 行情核对手册（8个必核字段）
 │   ├── data_sources.md               # 数据源优先级 + opencli 命令
 │   ├── pre-writing-judgement-card.md # 写作前判断卡
@@ -248,14 +239,20 @@ stock-wechat-writer/
 │   ├── recap-writing-playbook.md     # 写作手册（开头/主线/明日/CTA）
 │   ├── writing_template.md           # 文章模板 + 发稿前自查
 │   ├── ai-antipatterns.md            # 财经专项 AI 味消除（禁用词+替换）
+│   ├── baoyu-image-backend.md        # Baoyu 生图后端接入
 │   └── cover-design.md               # 封面设计规范（HTML模板+配色）
 └── scripts/
     ├── pre_publish_check.py          # 发稿前自动检查脚本
     ├── check_data_sources.py         # 数据源可用性探测
+    ├── fetch_market_data.py          # AKShare / efinance / BaoStock 统一行情入口
     ├── fetch_eastmoney_snapshot.py   # 东方财富指数/个股快照采集
+    ├── generate_article_images.py    # Baoyu 封面底图 / 文中图生图调度
     ├── generate_fact_card.py         # 事实卡片生成辅助
+    ├── generate_social_cards.py      # Guizang 风格公众号封面 / 小红书图文生成
     ├── judgement_ledger.py           # 历史判断记录与复盘校准
     └── sample_fact_input.json        # 示例输入
+└── third_party/
+    └── guizang-social-card-skill/    # 上游 Guizang 模板代码，AGPL-3.0
 ```
 
 ---
@@ -263,7 +260,11 @@ stock-wechat-writer/
 ## 关键约束
 
 - 写之前必须核对当日真实行情，事实卡片写不清楚不进入写作
-- 不把涨幅榜第一直接当主线，要看成交量和龙头
+- 先做全市场扫描，再决定写什么——涨幅榜只是筛选入口，不是文章目录
+- 选 1-3 个最值得说的方向，每个方向点到为止，不写板块清单
+- 开头给判断，不是描述——"今天真正宽的方向是被动元器件"，不是"今天市场整体……"
+- 结尾给明日偏向，不给"有仓/没仓/止损"三段式操作清单
+- 短句口语，每句不超过25字，不用机构腔，读起来像人写的
 - 不把低位超跌反弹写进推荐池，除非趋势反转证据明确
 - 正文至少2个具名案例（公司名/股票代码+具体数字）
 - 发稿前必须跑 `pre_publish_check.py`，0 failures 才能推送

@@ -97,6 +97,7 @@ python scripts/pre_publish_check.py --article output/stock_review_YYYYMMDD.md --
 关键数字至少两种来源交叉确认：
 
 - 指数、成交额：`akshare` + 财经媒体收评
+- 个股近 3-5 日走势：`fetch_market_data.py --history`，优先 AKShare，efinance / BaoStock 兜底
 - 主线板块：板块排行 + 当日收评文字
 - 驱动因素：新闻 / 事件 / 海外映射 / 资金流向
 
