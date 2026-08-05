@@ -44,9 +44,40 @@ HYPE_PHRASES = [
 FIXED_FORMULA_PATTERNS = [
     ("不是X而是Y", re.compile(r"不是.{0,24}而是")),
     ("不是X，是Y", re.compile(r"不是[^。\n]{1,24}[，,]\s*是")),
-    ("表面X实则Y", re.compile(r"表面.{0,18}(实则|本质上)")),
+    ("并非X而是Y", re.compile(r"并非.{0,24}而是")),
+    ("不在于X而在于Y", re.compile(r"不在于.{0,24}而在于")),
+    ("与其说X不如说Y", re.compile(r"与其说.{0,24}不如说")),
+    ("不只X还/也Y", re.compile(r"不只(?:是)?[^。\n]{0,24}(?:还|也)")),
+    ("表面X实则Y", re.compile(r"表面.{0,18}(实则|本质上|实际|其实)")),
+    ("看似X实则Y", re.compile(r"看似.{0,24}(实则|实际|其实)")),
     ("首先其次最后", re.compile(r"首先.{0,80}其次.{0,80}(最后|再者)")),
 ]
+
+# 段落开场重复。同一个词开头四次以上，读起来像模型在打拍子。
+REPEATED_OPENERS = (
+    "其实",
+    "不过",
+    "当然",
+    "所以",
+    "但是",
+    "今天",
+    "而且",
+    "另外",
+    "问题是",
+    "更重要的是",
+    "值得关注的是",
+)
+
+# 借喻场。财经稿最容易同时借用赛道、弹药、降温、坍塌，
+# 短距离内混三套以上，读者会觉得作者在表演，而不是在说盘面。
+METAPHOR_FIELDS = {
+    "温度": ("降温", "升温", "冷却", "余温", "退烧"),
+    "生死战争": ("杀死", "枪响", "开火", "战场", "引爆", "弹药", "厮杀", "血洗"),
+    "建筑灾害": ("坍塌", "崩塌", "地基", "支柱", "废墟"),
+    "道路竞赛": ("赛道", "跑道", "岔路", "十字路口", "终点线", "门票"),
+    "机器器官": ("齿轮", "引擎", "发动机", "血管", "骨架"),
+    "海洋航行": ("蓝海", "浪潮", "潮水", "航船", "灯塔", "彼岸"),
+}
 
 WEAK_SOURCE_PATTERNS = [
     re.compile(r"(据报道|媒体报道|消息称|网传|市场传闻|有消息称)"),
@@ -155,6 +186,37 @@ DEPTH_PATTERNS = {
 
 def split_paragraphs(text: str) -> list[str]:
     return [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+
+
+def repeated_opener(paragraphs: list[str], limit: int = 4) -> tuple[str, int] | None:
+    """找出连续用同一个词开头的段落。返回 (开场词, 次数)。"""
+    counts: dict[str, int] = {}
+    for paragraph in paragraphs:
+        value = paragraph.lstrip("#>*-　 “‘\"（(")
+        for opener in REPEATED_OPENERS:
+            if value.startswith(opener):
+                counts[opener] = counts.get(opener, 0) + 1
+                break
+    if not counts:
+        return None
+    opener, count = max(counts.items(), key=lambda item: item[1])
+    return (opener, count) if count >= limit else None
+
+
+def metaphor_cluster(text: str, distance: int = 800, fields_limit: int = 3):
+    """检查短距离内是否混用了多套借喻。返回 (借喻场集合, 例词列表)。"""
+    hits = []
+    for field, words in METAPHOR_FIELDS.items():
+        for word in words:
+            for match in re.finditer(re.escape(word), text):
+                hits.append((match.start(), field, word))
+    hits.sort()
+    for index, (start, _, _) in enumerate(hits):
+        window = [hit for hit in hits[index:] if hit[0] - start <= distance]
+        fields = {hit[1] for hit in window}
+        if len(fields) >= fields_limit:
+            return fields, list(dict.fromkeys(hit[2] for hit in window))
+    return None
 
 
 def has_positive_action(text: str) -> bool:
@@ -353,6 +415,21 @@ def check_article(
     for label, pattern in FIXED_FORMULA_PATTERNS:
         if pattern.search(text):
             warnings.append(f"检测到固定句式风险：{label}")
+
+    opener_hit = repeated_opener(split_paragraphs(text))
+    if opener_hit:
+        opener, count = opener_hit
+        warnings.append(
+            f"段落开场重复：{count} 段以「{opener}」开头；换成直接说事，别按固定位置放路标"
+        )
+
+    metaphor_hit = metaphor_cluster(text)
+    if metaphor_hit:
+        fields, samples = metaphor_hit
+        warnings.append(
+            f"800 字内混用 {len(fields)} 套借喻（{'、'.join(sorted(fields))}）：{'、'.join(samples[:6])}；"
+            "先全部还原成盘面本义，本义说清楚就一个也不用放回"
+        )
 
     repetitive_hits = [phrase for phrase in REPETITIVE_RECAP_PHRASES if phrase in text]
     if len(repetitive_hits) >= 2:
