@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 
 import pre_publish_check
 
@@ -20,6 +21,33 @@ BASE_ARTICLE = """# 测试标题
 
 
 class PrePublishCheckTest(unittest.TestCase):
+    def test_ai_residue_fails(self) -> None:
+        failures, _ = pre_publish_check.check_ai_style("正文结论。turn3search2")
+        self.assertTrue(any("模型/搜索引用残留" in item for item in failures))
+
+    def test_jargon_warns(self) -> None:
+        _, warnings = pre_publish_check.check_ai_style("这套全链路能力可以赋能投资判断。")
+        self.assertTrue(any("AI/营销黑话" in item for item in warnings))
+
+    def test_em_dash_density_has_tolerance(self) -> None:
+        _, accepted = pre_publish_check.check_ai_style("\n".join(["一句——补充。"] * 6))
+        _, excessive = pre_publish_check.check_ai_style("\n".join(["一句——补充。"] * 7))
+        self.assertFalse(any("破折号连续段" in item for item in accepted))
+        self.assertTrue(any("破折号连续段" in item for item in excessive))
+
+    def test_reference_examples_pass_new_style_failures(self) -> None:
+        reference_dir = Path(__file__).resolve().parents[1] / "references"
+        for name in (
+            "example-20260529.md",
+            "example-20260603.md",
+            "example-xiaoqun-20260603.md",
+        ):
+            with self.subTest(name=name):
+                text = (reference_dir / name).read_text(encoding="utf-8")
+                failures, warnings = pre_publish_check.check_ai_style(text)
+                self.assertEqual([], failures)
+                self.assertFalse(any("破折号连续段" in item for item in warnings))
+
     def test_mismatched_stock_name_fails(self) -> None:
         text = BASE_ARTICLE.replace("大普微-UW（301666）", "大普微（688469）")
         failures, _ = pre_publish_check.check_article(text)

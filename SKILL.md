@@ -80,8 +80,9 @@ python scripts/verify_prediction.py
 优先级：
 1. 本地脚本 / `daily_stock_analysis` / 已有行情采集脚本，例如 `scripts/check_data_sources.py`、`scripts/fetch_market_data.py`、`scripts/fetch_eastmoney_snapshot.py`。
 2. MCP / 浏览器 / 官方网页，用于交易所公告、公司公告、东方财富、同花顺、Wind/万得页面核对。
-3. `opencli`，用于财联社、雪球、微博、东方财富/同花顺相关搜索。
-4. Web 搜索作为 fallback，优先交易所、公司公告、东方财富、同花顺、证券时报、财联社、Wind/万得口径。
+3. Agent Reach，只负责体检和路由新闻/社区后端；实际读取仍调用当前激活的上游工具。
+4. `opencli`，用于财联社、雪球、微博、东方财富/同花顺相关搜索。
+5. Web 搜索作为 fallback，优先交易所、公司公告、东方财富、同花顺、证券时报、财联社、Wind/万得口径。
 
 所有 LLM 输出只当线索，不当事实来源。
 
@@ -92,7 +93,10 @@ python scripts/check_data_sources.py
 python scripts/fetch_market_data.py --probe
 python scripts/fetch_market_data.py --indices
 python scripts/fetch_market_data.py --history 600519 --start 20260501 --end 20260603
+agent-reach doctor --json
 ```
+
+Agent Reach 旧版不支持 `--json` 时改跑 `agent-reach doctor`。详细分层、字段和降级规则见 `references/research-source-routing.md`。
 
 信息源按数据层使用：
 
@@ -149,7 +153,9 @@ python scripts/pre_publish_check.py --article output/stock_review_YYYYMMDD.md
 - 东方财富 `主力净流入` 是资金流模型口径，不能写成“外资买入”或“机构确认”。
 - “深股通专用”“机构专用席位”等只能来自龙虎榜/交易所/东方财富/同花顺/Wind，不能凭社媒或 LLM 输出写。
 
-### 2c. 实时财经新闻（opencli）
+### 2c. 实时财经新闻与舆情（Agent Reach / opencli）
+
+先读取 `references/research-source-routing.md`，按 Agent Reach 的 `active_backend` 选择当前可用后端。雪球、X、Reddit、小红书等社区结果只标为 `lead_or_sentiment`；没有硬数据或可靠新闻交叉验证，不得写成上涨原因和确定性事实。
 
 ```bash
 # 雪球热议
@@ -171,6 +177,8 @@ opencli web search "Wind 今日A股 行业涨跌 资金流" --limit 10
 - `i问财 / iwencai / pywencai`：用于条件筛选候选池，例如“今日涨停 + 存储芯片 + 成交额前排”。筛出来的个股必须再核对代码、成交额、概念归属。
 - `百度PAE / 百度搜索 + 同花顺`：用于热点题材、舆情热度和概念解释。舆情热但盘面没有放量响应，只能写“舆情热，不是交易主线”。
 - `巨潮资讯网 / 交易所公告`：用于公告全文、业绩、减持、并购、问询函、重大合同核对。公告摘要不能替代全文。
+
+事实卡必须记录 `source_type`、`source_url`、`active_backend`、`retrieved_at` 和 `verification_status`。渠道不可用时记录缺口并继续，不把抓取失败解释成市场没有讨论。
 
 ### 2c0. 东方财富快照（本地脚本）
 
@@ -433,7 +441,9 @@ python scripts/stock_selector.py --top 5
 
 ## Step 4：写作
 
-详细规则见 `references/recap-writing-playbook.md` 和 `references/writing_template.md`。
+详细规则见 `references/recap-writing-playbook.md`、`references/writing_template.md` 和 `references/recap-host-profile.md`。
+
+写作前必须重读最新定稿例文、`recap-quality-lessons.md` 与作者画像。优先级：最新用户认可定稿 > 质量纠偏记录 > 作者画像 > 通用去 AI 味规则。
 
 **结构不固定，先看当天盘面，再决定写法。**
 
@@ -535,6 +545,7 @@ python scripts/stock_selector.py --top 5
 - [ ] 无"！！"连用，无"……"，无冒号独占一行
 - [ ] 无"首先…其次…最后…"结构
 - [ ] 所有数字具体（"大幅上涨" → "涨4.3%"，"成交量放大" → "成交额3.1万亿"）
+- [ ] 无 `contentReference`、`oaicite`、`turn0search0` 等模型/搜索引用残留
 
 **第二遍：L2 节奏与口语（通读全文，感受节奏）**
 - [ ] 开头不是"在当前市场环境下..."或"近期A股..."
@@ -555,6 +566,8 @@ python scripts/stock_selector.py --top 5
 - [ ] 有反直觉角度——不是在重复今天财联社/雪球都说过的
 - [ ] 读起来像一个今天真的跟盘的人在说话，不像数据播报员
 - [ ] 开头和结尾不像 AI 自我复盘：没有心理独白、内部纠错、固定“看承接”套路
+- [ ] 对照 `recap-host-profile.md`：一个核心矛盾、少量数字锚点、每段一个推进动作
+- [ ] 破折号和列表按画像控制密度，不做零容忍，也不为了“人味”制造错字或漏标点
 
 ---
 
@@ -849,11 +862,11 @@ output/
 ### 9a. 发稿前自动检查
 
 ```bash
-python skills/stock-wechat-writer/scripts/pre_publish_check.py \
+python scripts/pre_publish_check.py \
   --article output/stock_review_YYYYMMDD.md
 ```
 
-检查通过（硬性项 0 failures）才能进入推送。有 failures 先修文章，再重跑检查。
+检查通过（硬性项 0 failures）才能进入推送。有 failures 先修文章，再重跑检查；风格 warnings 逐条定点判断，不能为了清零机械重写整篇。
 
 ### 9b. 推送到草稿箱
 

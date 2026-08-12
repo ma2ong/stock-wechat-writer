@@ -41,6 +41,49 @@ HYPE_PHRASES = [
     "稳了",
 ]
 
+AI_RESIDUE_PATTERNS = [
+    (
+        "模型/搜索引用残留",
+        re.compile(
+            r"contentReference|oaicite|turn\d+(?:search|news|view)\d*|"
+            r"\[cite[:_]|grok_card|ppl-ai-file-upload"
+        ),
+    ),
+    (
+        "AI 助手交付话术",
+        re.compile(r"^(?:Here is the revised version|以下是(?:修改|改写|润色)后的(?:版本|内容))", re.I | re.M),
+    ),
+]
+
+STYLE_JARGON_PHRASES = [
+    "赋能",
+    "打通",
+    "闭环",
+    "抓手",
+    "对齐",
+    "链路",
+    "底层逻辑",
+    "一站式",
+    "全链路",
+    "端到端",
+    "打造",
+    "致力于",
+    "助力",
+    "释放潜能",
+    "丝滑",
+    "无缝",
+    "干货满满",
+]
+
+TEMPLATE_TELL_PATTERNS = [
+    ("让我们式引导", re.compile(r"让我们")),
+    ("时代式开头", re.compile(r"在这个.{0,30}的时代")),
+    ("套路化收尾", re.compile(r"归根结底|说到底|记住[，,]真正")),
+]
+
+EM_DASH_RUN_WARNING_THRESHOLD = 6
+BULLET_WARNING_THRESHOLD = 12
+
 FIXED_FORMULA_PATTERNS = [
     ("不是X而是Y", re.compile(r"不是.{0,24}而是")),
     ("不是X，是Y", re.compile(r"不是[^。\n]{1,24}[，,]\s*是")),
@@ -186,6 +229,36 @@ DEPTH_PATTERNS = {
 
 def split_paragraphs(text: str) -> list[str]:
     return [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+
+
+def check_ai_style(text: str) -> tuple[list[str], list[str]]:
+    failures: list[str] = []
+    warnings: list[str] = []
+
+    for label, pattern in AI_RESIDUE_PATTERNS:
+        if pattern.search(text):
+            failures.append(f"检测到{label}；发布前必须删除")
+
+    jargon_hits = [phrase for phrase in STYLE_JARGON_PHRASES if phrase in text]
+    if jargon_hits:
+        warnings.append(f"检测到 AI/营销黑话：{', '.join(jargon_hits[:6])}")
+
+    for label, pattern in TEMPLATE_TELL_PATTERNS:
+        if pattern.search(text):
+            warnings.append(f"检测到套路化表达：{label}")
+
+    em_dash_runs = len(re.findall(r"—+", text))
+    if em_dash_runs > EM_DASH_RUN_WARNING_THRESHOLD:
+        warnings.append(
+            f"破折号连续段共 {em_dash_runs} 处，超过作者画像常态；逐处检查是否在替代正常句子"
+        )
+
+    bullet_count = len(re.findall(r"(?m)^\s*[-*]\s+", text))
+    if bullet_count > BULLET_WARNING_THRESHOLD:
+        warnings.append(f"正文列表项共 {bullet_count} 个，可能被模板化；确认列表是否真的帮助读者")
+
+    return failures, warnings
+
 
 
 def repeated_opener(paragraphs: list[str], limit: int = 4) -> tuple[str, int] | None:
@@ -387,6 +460,10 @@ def check_article(
 ) -> tuple[list[str], list[str]]:
     failures: list[str] = []
     warnings: list[str] = []
+
+    style_failures, style_warnings = check_ai_style(text)
+    failures.extend(style_failures)
+    warnings.extend(style_warnings)
 
     for name, pattern in REQUIRED_PATTERNS.items():
         if not pattern.search(text):
